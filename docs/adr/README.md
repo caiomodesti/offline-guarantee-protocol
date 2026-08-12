@@ -16,5 +16,6 @@
 | [0012](0012-sprint-3-collateral-core.md) | PDA custody, fixed collateral economics, and session activation | Accepted for MVP |
 | [0013](0013-remote-linux-runtime-acceptance.md) | Reproducible remote Linux SBF/runtime acceptance | Accepted for MVP |
 | [0014](0014-post-confirmation-portable-authorization.md) | Post-confirmation portable device authorization and on-chain genesis derivation | Accepted for MVP |
+| [0015](0015-sprint-4-claim-verification.md) | Native Ed25519 claim verification and economic-edge indexing | Accepted for MVP |
 
 “Accepted for MVP design” does not authorize implementation before the relevant sprint.

@@ -292,6 +292,8 @@ A unique credential is eligible if and only if all conditions hold:
 13. it is not an exact replay already represented by the same `credential_hash`;
 14. its economic state edge is not already represented by another eligible wrapper, except that the smallest credential hash deterministically represents the edge.
 
+For offline acceptance, condition 1 requires the portable certificate and wallet authorization signatures. During on-chain collection, the issuer signature is not redundantly replayed in every claim: the program reads the authoritative session account, requires its one-shot registered authorization hash, and verifies the economically authoritative device signature through the native Ed25519 program. This removes rather than adds relayer trust; the certificate issuer remains only the offline portability trust root. See [ADR-0015](adr/0015-sprint-4-claim-verification.md).
+
 Eligibility is independent of branch choice: valid credentials on conflicting branches remain eligible.
 
 Off-chain comparison of two authenticated incompatible credentials MAY produce the provisional incident `DOUBLE SPEND ATTEMPTED`, but it changes no economic state. Claim/evidence submission derives a `ForkRecord` from `(session_id, previous_state_hash, sequence)`. The first individually verified child initializes it. Registering a later timely verified claim with a distinct child hash makes the program confirm an authenticated fork, update the record, and perform the conflict/revocation transition atomically. It emits `AuthenticatedForkConfirmed`, `SessionMarkedConflicted`, and `OfflineAccessRevoked`. A third distinct child increases the branch count without repeating profile revocation.

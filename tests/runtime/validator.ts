@@ -561,6 +561,28 @@ await program.methods
   .rpc();
 const claimsSessionState = await program.account.offlineSession.fetch(claimsSession);
 assert.deepEqual(Array.from(claimsSessionState.deviceAuthorizationHash), authorizationHash);
+await expectFailure("device authorization re-registration", () =>
+  program.methods
+    .registerDeviceAuthorization(nonzero(181))
+    .accounts({
+      config,
+      owner: claimsUser.owner.publicKey,
+      session: claimsSession,
+    })
+    .signers([claimsUser.owner])
+    .rpc(),
+);
+await expectFailure("device authorization signer substitution", () =>
+  program.methods
+    .registerDeviceAuthorization(nonzero(182))
+    .accounts({
+      config,
+      owner: randomSigner.publicKey,
+      session: claimsSession,
+    })
+    .signers([randomSigner])
+    .rpc(),
+);
 
 const domainContext: DomainContext = {
   networkId: NetworkId.Localnet,
@@ -673,7 +695,10 @@ async function submitRuntimeClaim(
     credential.stateHash,
   );
   const claimInstruction = await program.methods
-    .submitClaim(Array.from(credential.payload), Array.from(credential.signature))
+    .submitClaim(
+      Buffer.from(credential.payload),
+      Buffer.from(credential.signature),
+    )
     .accounts({
       config,
       session: claimsSession,
