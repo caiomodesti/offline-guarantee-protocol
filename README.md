@@ -43,7 +43,7 @@ Coverage is `FULLY_COVERED` when frozen eligible claims are within the cap and `
 
 Sprint 0 is frozen as the MVP design baseline. Sprint 1 implements the portable cryptographic core in TypeScript plus an independent Rust conformance harness. Sprint 2 implements the deterministic offline ledger. Sprint 3 implements the Anchor collateral core: protocol config and pause, opaque user profiles, PDA-controlled classic SPL vaults, checked deposits, and collateral-reserving offline-session activation.
 
-There is still no claim/reconciliation program path, mobile application, issued demo token, QR transport, or dashboard. Sprint 4 has not started. SBF compilation and validator-backed CPI tests remain an explicit Sprint 3 open risk on this native Windows host.
+Sprint 3 collateral/session behavior and its remote Linux SBF/validator gate pass. Sprint 4 now implements claim collection, native Ed25519 instruction introspection, exact-credential replay protection, merchant binding, deadline/transition checks, and economic state-edge idempotency. Reconciliation, fork classification, settlement, mobile applications, QR transport, and dashboard remain scheduled for later sprints; no claim is paid during collection.
 
 ## Specification map
 

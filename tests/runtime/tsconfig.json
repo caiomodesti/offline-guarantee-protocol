@@ -6,5 +6,11 @@
     "types": ["node"],
     "skipLibCheck": true
   },
+  "references": [
+    { "path": "../../packages/shared-types" },
+    { "path": "../../packages/canonical-codec" },
+    { "path": "../../packages/crypto" },
+    { "path": "../../packages/credentials" }
+  ],
   "include": ["validator.ts"]
 }
