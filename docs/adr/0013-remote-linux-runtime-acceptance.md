@@ -39,3 +39,9 @@ This is an execution-environment substitution only:
 ## Exit condition
 
 This ADR is satisfied only when the private CI run produces all mandatory PASS evidence. Until then, the result remains `SPRINT 3 RUNTIME ACCEPTANCE: NO-GO` and Sprint 4 must not start.
+
+## Outcome
+
+Satisfied on 2026-08-12 by private GitHub Actions run `31587518880` at commit `ad986a29420b1820d6cee551ae4b60890ce012b4`. The SBF artifact, validator logs, exact environment, SHA-256, and 15 structured runtime checks were uploaded as artifact `9138025537` with archive digest `sha256:377b54868b3655ee8f60d3c4d3929c6edbd1c8fc95f6c83d27896be38202fd8b`.
+
+`SPRINT 3 RUNTIME ACCEPTANCE: PASS`. Devnet remains unauthorized until its scheduled sprint, and Sprint 4 requires explicit project-owner approval.

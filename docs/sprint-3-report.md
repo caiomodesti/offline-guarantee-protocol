@@ -127,3 +127,23 @@ On this Windows host, `anchor build` stops before SBF compilation because `cargo
 ## Acceptance result
 
 Sprint 3 behavior and host tests are complete. Acceptance for devnet deployment is withheld until SBF build plus validator-backed token CPI tests pass. No Sprint 4 implementation was started.
+
+## Runtime acceptance addendum — 2026-08-12
+
+The previously open SBF/runtime risk is now closed. Private Linux run [31587518880](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31587518880), commit `ad986a29420b1820d6cee551ae4b60890ce012b4`, passed:
+
+- clean pinned toolchain installation and program-ID synchronization;
+- the full host/conformance suite;
+- real SBF compilation with a 322,224-byte artifact;
+- deploy and execution in `solana-test-validator`;
+- 15 validator-backed checks, including classic SPL `transfer_checked`, PDA custody, exact 300% reservation, direct donation accounting, Clock windows, pause enforcement, stale-identity rejection, and atomic rollback.
+
+The hostile audit found and fixed an unsafe SBF account-parser stack frame and a session/identity expiry gap. Full evidence and remaining risks are in `docs/sprint-3-runtime-acceptance.md`.
+
+```text
+SPRINT 3 RUNTIME ACCEPTANCE: PASS
+AUTHORIZED TO REQUEST OWNER REVIEW BEFORE SPRINT 4
+DEVNET: NO-GO UNTIL ITS SCHEDULED SPRINT
+```
+
+No Sprint 4 functionality was started.

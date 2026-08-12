@@ -23,7 +23,9 @@ runtime_acceptance:
   solana_version: 3.1.10
   anchor_version: 1.0.2
   validator_backend: solana-test-validator
-  status: pending
+  run_id: 31587518880
+  tested_commit: ad986a29420b1820d6cee551ae4b60890ce012b4
+  status: pass
 ```
 
-OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 implements the collateral/session core; its host suite passes and its SBF/validator runtime acceptance gate is pending. Claims and Sprint 4 functionality have not started.
+OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 implements the collateral/session core; its host suite and pinned SBF/validator runtime acceptance gate pass. Claims and Sprint 4 functionality have not started. Devnet remains scheduled for Sprint 12.
