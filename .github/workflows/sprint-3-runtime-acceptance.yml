@@ -1,0 +1,117 @@
+name: Sprint 3 Runtime Acceptance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RUST_VERSION: 1.97.1
+      SOLANA_VERSION: 3.1.10
+      ANCHOR_VERSION: 1.0.2
+      NODE_VERSION: 22.17.0
+      PNPM_VERSION: 11.16.0
+      NODE_OPTIONS: --dns-result-order=ipv4first
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang cmake libclang-dev libudev-dev \
+            libssl-dev pkg-config protobuf-compiler libprotobuf-dev zlib1g-dev
+
+      - name: Install pinned Rust
+        run: |
+          rustup toolchain install "$RUST_VERSION" --profile minimal --component rustfmt
+          rustup override set "$RUST_VERSION"
+          rustc --version
+          cargo --version
+
+      - name: Install pinned Node and pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: |
+          corepack enable
+          corepack prepare "pnpm@$PNPM_VERSION" --activate
+          node --version
+          pnpm --version
+
+      - name: Install pinned Agave CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/v$SOLANA_VERSION/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/share/solana/install/active_release/bin/solana" --version
+
+      - name: Install pinned Anchor CLI
+        run: |
+          cargo install --git https://github.com/solana-foundation/anchor \
+            --tag "v$ANCHOR_VERSION" avm --locked
+          avm install "$ANCHOR_VERSION"
+          avm use "$ANCHOR_VERSION"
+          anchor --version
+
+      - name: Create ephemeral development identities and sync program ID
+        run: |
+          mkdir -p "$HOME/.config/solana" target/deploy
+          solana-keygen new --no-bip39-passphrase --silent --force \
+            -o "$HOME/.config/solana/id.json"
+          solana-keygen new --no-bip39-passphrase --silent --force \
+            -o target/deploy/offline_guarantee-keypair.json
+          anchor keys sync
+          anchor keys list
+          solana address -k target/deploy/offline_guarantee-keypair.json
+
+      - name: Install workspace dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Host and conformance suite
+        run: |
+          corepack pnpm check
+          cargo fmt --manifest-path programs/offline-guarantee/Cargo.toml -- --check
+
+      - name: Build real SBF artifact
+        run: |
+          anchor build
+          test -s target/deploy/offline_guarantee.so
+          stat --printf='artifact=%n bytes=%s\n' target/deploy/offline_guarantee.so
+          sha256sum target/deploy/offline_guarantee.so | tee target/sbf-sha256.txt
+
+      - name: Validator-backed CPI and invariant suite
+        run: anchor test --validator legacy
+
+      - name: Capture exact environment
+        if: always()
+        run: |
+          {
+            rustc --version
+            cargo --version
+            solana --version
+            anchor --version
+            node --version
+            pnpm --version
+          } | tee target/runtime-environment.txt
+
+      - name: Upload runtime proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sprint-3-runtime-proof
+          if-no-files-found: warn
+          path: |
+            target/deploy/offline_guarantee.so
+            target/idl/offline_guarantee.json
+            target/runtime-proof.json
+            target/runtime-environment.txt
+            target/sbf-sha256.txt
+            .anchor/program-logs/

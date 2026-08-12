@@ -1,0 +1,9 @@
+packages:
+  - "packages/*"
+allowBuilds:
+  bigint-buffer: false
+  bufferutil: false
+  esbuild: true
+  utf-8-validate: false
+minimumReleaseAgeExclude:
+  - tsx@4.23.12

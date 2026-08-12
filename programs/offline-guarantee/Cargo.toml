@@ -1,0 +1,23 @@
+[package]
+name = "offline-guarantee"
+version = "0.1.0"
+description = "OGP v0.1 collateral and offline-session core"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "offline_guarantee"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = ["anchor-lang/anchor-debug", "anchor-spl/anchor-debug"]
+
+[dependencies]
+anchor-lang = { version = "=1.0.2", features = ["derive"] }
+anchor-spl = { version = "=1.0.2", default-features = false, features = ["token", "token_2022"] }

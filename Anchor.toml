@@ -1,0 +1,25 @@
+[toolchain]
+anchor_version = "1.0.2"
+solana_version = "3.1.10"
+package_manager = "pnpm"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+offline_guarantee = "5Sa9K4yLThfeg9UN9sMsiQwNA2RKPbeDywgJvJ1rkgEm"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "pnpm test:runtime"
+
+[test]
+startup_wait = 20000
+
+[test.validator]
+ledger = "test-ledger"
+limit_ledger_size = 10000

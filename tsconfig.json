@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared-types" },
+    { "path": "packages/canonical-codec" },
+    { "path": "packages/crypto" },
+    { "path": "packages/credentials" },
+    { "path": "packages/offline-ledger" }
+  ]
+}
