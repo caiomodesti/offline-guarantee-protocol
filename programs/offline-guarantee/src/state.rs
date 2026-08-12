@@ -12,6 +12,8 @@ pub struct ProtocolConfig {
     pub identity_authority: Pubkey,
     pub certificate_issuer: Pubkey,
     pub settlement_mint: Pubkey,
+    pub network_id: u8,
+    pub cluster_genesis_hash: [u8; 32],
     pub minimum_collateral_ratio_bps: u32,
     pub max_session_duration_seconds: i64,
     pub claim_grace_period_seconds: i64,
@@ -21,7 +23,7 @@ pub struct ProtocolConfig {
 }
 
 impl ProtocolConfig {
-    pub const SPACE: usize = 8 + (32 * 5) + 4 + 8 + 8 + 4 + 1 + 1;
+    pub const SPACE: usize = 8 + (32 * 5) + 1 + 32 + 4 + 8 + 8 + 4 + 1 + 1;
 }
 
 #[account]
@@ -62,8 +64,10 @@ impl CollateralVault {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SessionStatus {
     Active,
+    ClaimWindow,
     Conflicted,
     Reconciling,
+    Settled,
     Insolvent,
     Closed,
 }
@@ -96,11 +100,70 @@ pub struct OfflineSession {
     pub identity_attestation_hash: [u8; 32],
     pub settled_amount: u64,
     pub aggregate_offline_exposure: u64,
+    pub unique_edge_count: u64,
     pub conflicting_claim_count: u64,
     pub resolution_hash: [u8; 32],
     pub bump: u8,
 }
 
 impl OfflineSession {
-    pub const SPACE: usize = 344;
+    pub const SPACE: usize = 352;
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClaimStatus {
+    Submitted,
+    Valid,
+    Conflicting,
+    Settled,
+    Rejected,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClaimRejectionReason {
+    None,
+    DuplicateStateEdge,
+}
+
+#[account]
+pub struct Claim {
+    pub credential_hash: [u8; 32],
+    pub session: Pubkey,
+    pub merchant: Pubkey,
+    pub amount: u64,
+    pub sequence: u32,
+    pub previous_state_hash: [u8; 32],
+    pub new_state_hash: [u8; 32],
+    pub submitted_slot: u64,
+    pub status: ClaimStatus,
+    pub rejection_reason: ClaimRejectionReason,
+    pub allocated_amount: u64,
+    pub settled_amount: u64,
+    pub bump: u8,
+}
+
+impl Claim {
+    pub const SPACE: usize = 8 + (32 * 5) + 8 + 4 + 8 + 1 + 1 + 8 + 8 + 1;
+}
+
+#[account]
+pub struct StateEdgeRecord {
+    pub session: Pubkey,
+    pub previous_state_hash: [u8; 32],
+    pub sequence: u32,
+    pub new_state_hash: [u8; 32],
+    pub merchant: Pubkey,
+    pub amount: u64,
+    pub previous_remaining: u64,
+    pub new_remaining: u64,
+    pub representative_credential_hash: [u8; 32],
+    pub wrapper_count: u32,
+    pub submitted_slot: u64,
+    pub allocated_amount: u64,
+    pub settled_amount: u64,
+    pub bump: u8,
+}
+
+impl StateEdgeRecord {
+    pub const SPACE: usize = 8 + (32 * 5) + 4 + (8 * 6) + 4 + 1;
 }

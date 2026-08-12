@@ -52,6 +52,7 @@ An off-chain component MAY propose results but MUST NOT make an economic fact tr
 | `create_user_profile` | On-chain because revocation gates future sessions |
 | `create_vault` / `deposit_collateral` | On-chain SPL custody and accounting |
 | `create_offline_session` | On-chain because it reserves collateral and fixes immutable bounds |
+| `register_device_authorization` | Owner-only one-shot registration after runtime-derived session facts are finalized; makes the session portable/claim-ready |
 | certificate production | Off-chain issuer signature over finalized on-chain `ACTIVE` session; issuer has no activation authority |
 | credential creation/verification | Offline on payer/merchant devices using shared canonical SDK |
 | `advance_session_phase` | Permissionless on-chain materialization of `ACTIVE -> CLAIM_WINDOW` using the Solana clock |

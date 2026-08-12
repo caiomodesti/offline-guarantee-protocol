@@ -9,7 +9,7 @@ defi:
   emergency_pause: true
 project:
   name: Offline Guarantee Protocol
-  phase: sprint-3-runtime-acceptance-gate
+  phase: sprint-4-claims
   settlement_asset: mock-spl-token
   money_representation: u64-minor-units
 offline_ledger:
@@ -28,4 +28,4 @@ runtime_acceptance:
   status: pass
 ```
 
-OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 implements the collateral/session core; its host suite and pinned SBF/validator runtime acceptance gate pass. Claims and Sprint 4 functionality have not started. Devnet remains scheduled for Sprint 12.
+OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 and its pinned SBF/validator runtime acceptance gate pass. Sprint 4 implements claim collection and economic state-edge idempotency only; reconciliation remains Sprint 5 and economic resolution remains Sprint 6. Devnet remains scheduled for Sprint 12.

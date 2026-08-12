@@ -143,6 +143,15 @@ authorization_nonce
 wallet_signature
 ```
 
+The wallet cannot sign this object before the session transaction because `issued_at` comes from `Solana Clock`. The deterministic lifecycle is:
+
+1. the wallet signs `create_offline_session`, which fixes the device key and derives `issued_at` plus `genesis_state_hash` on-chain;
+2. after confirmation, the wallet signs `DeviceAuthorization` over those finalized facts;
+3. the owner registers its canonical hash once on-chain;
+4. only then may the issuer produce `SessionCertificate` and claims be submitted.
+
+The initial session transaction signature is the on-chain authorization. The portable signature is the offline-verification artifact. See [ADR-0014](adr/0014-post-confirmation-portable-authorization.md).
+
 ### SessionCertificate
 
 ```text
@@ -168,7 +177,7 @@ certificate_nonce
 issuer_signature
 ```
 
-`create_offline_session` creates authoritative `ACTIVE` state and reserves `collateral_locked`. The certificate issuer MUST read that finalized on-chain session before signing its portable representation. The issuer cannot create the session, move collateral, classify claims, reconcile, revoke, or settle. A claim whose certificate differs from immutable on-chain session parameters is rejected. Offline merchants trust issuer accuracy/freshness until `expires_at`; replacing that explicit trust with chain-state proofs is deferred.
+`create_offline_session` creates authoritative `ACTIVE` state and reserves `collateral_locked`. `register_device_authorization` must then record the owner-authorized portable artifact hash. The certificate issuer MUST read that finalized on-chain session before signing its portable representation. The issuer cannot create the session, move collateral, classify claims, reconcile, revoke, or settle. A claim whose certificate differs from immutable on-chain session parameters is rejected. Offline merchants trust issuer accuracy/freshness until `expires_at`; replacing that explicit trust with chain-state proofs is deferred.
 
 ### PaymentCredential
 

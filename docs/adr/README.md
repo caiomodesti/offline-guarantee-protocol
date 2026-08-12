@@ -14,5 +14,7 @@
 | [0010](0010-v01-session-claims-and-events.md) | v0.1 session, claim, and authoritative-event lifecycle | Accepted for MVP |
 | [0011](0011-economic-state-edge-idempotency.md) | Economic state-edge idempotency across distinct credential wrappers | Accepted for MVP |
 | [0012](0012-sprint-3-collateral-core.md) | PDA custody, fixed collateral economics, and session activation | Accepted for MVP |
+| [0013](0013-remote-linux-runtime-acceptance.md) | Reproducible remote Linux SBF/runtime acceptance | Accepted for MVP |
+| [0014](0014-post-confirmation-portable-authorization.md) | Post-confirmation portable device authorization and on-chain genesis derivation | Accepted for MVP |
 
 “Accepted for MVP design” does not authorize implementation before the relevant sprint.

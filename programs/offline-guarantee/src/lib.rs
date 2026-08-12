@@ -3,10 +3,15 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, TransferChecked};
 
+pub mod claims;
 pub mod errors;
 pub mod math;
 pub mod state;
 
+use claims::{
+    create_program_pda, derive_genesis_state_hash, read_program_account, validate_claim_payload,
+    validate_ed25519_instruction, validate_network_domain, write_program_account,
+};
 use errors::OgpError;
 use math::{
     checked_deposit, checked_reservation, claim_submission_deadline, validate_session_economics,
@@ -25,6 +30,8 @@ pub mod offline_guarantee {
         emergency_authority: Pubkey,
         identity_authority: Pubkey,
         certificate_issuer: Pubkey,
+        network_id: u8,
+        cluster_genesis_hash: [u8; 32],
     ) -> Result<()> {
         validate_authorities(
             ctx.accounts.admin.key(),
@@ -32,12 +39,15 @@ pub mod offline_guarantee {
             identity_authority,
             certificate_issuer,
         )?;
+        validate_network_domain(network_id, &cluster_genesis_hash)?;
         let config = &mut ctx.accounts.config;
         config.admin = ctx.accounts.admin.key();
         config.emergency_authority = emergency_authority;
         config.identity_authority = identity_authority;
         config.certificate_issuer = certificate_issuer;
         config.settlement_mint = ctx.accounts.settlement_mint.key();
+        config.network_id = network_id;
+        config.cluster_genesis_hash = cluster_genesis_hash;
         config.minimum_collateral_ratio_bps = MINIMUM_COLLATERAL_RATIO_BPS;
         config.max_session_duration_seconds = MAX_SESSION_DURATION_SECONDS;
         config.claim_grace_period_seconds = CLAIM_GRACE_PERIOD_SECONDS;
@@ -51,6 +61,8 @@ pub mod offline_guarantee {
             identity_authority,
             certificate_issuer,
             settlement_mint: config.settlement_mint,
+            network_id,
+            cluster_genesis_hash,
             minimum_collateral_ratio_bps: MINIMUM_COLLATERAL_RATIO_BPS,
         });
         Ok(())
@@ -164,8 +176,6 @@ pub mod offline_guarantee {
         collateral_locked: u64,
         branch_spending_limit: u64,
         expires_at: i64,
-        genesis_state_hash: [u8; 32],
-        device_authorization_hash: [u8; 32],
     ) -> Result<()> {
         require_not_paused(&ctx.accounts.config)?;
         require!(
@@ -181,13 +191,7 @@ pub mod offline_guarantee {
             ctx.accounts.profile.identity_expires_at > now,
             OgpError::IdentityExpired
         );
-        validate_session_material(
-            ctx.accounts.owner.key(),
-            device_public_key,
-            &session_id,
-            &genesis_state_hash,
-            &device_authorization_hash,
-        )?;
+        validate_session_material(ctx.accounts.owner.key(), device_public_key, &session_id)?;
         validate_session_economics(
             collateral_locked,
             branch_spending_limit,
@@ -204,6 +208,15 @@ pub mod offline_guarantee {
         );
         let deadline =
             claim_submission_deadline(expires_at, ctx.accounts.config.claim_grace_period_seconds)?;
+        let genesis_state_hash = derive_genesis_state_hash(
+            &ctx.accounts.config,
+            session_id,
+            ctx.accounts.owner.key(),
+            device_public_key,
+            branch_spending_limit,
+            now,
+            expires_at,
+        )?;
         let new_reserved = checked_reservation(
             ctx.accounts.vault.deposited_amount,
             ctx.accounts.vault.reserved_amount,
@@ -228,10 +241,11 @@ pub mod offline_guarantee {
         session.authenticated_fork = false;
         session.coverage_status = CoverageStatus::Uncalculated;
         session.genesis_state_hash = genesis_state_hash;
-        session.device_authorization_hash = device_authorization_hash;
+        session.device_authorization_hash = [0; 32];
         session.identity_attestation_hash = ctx.accounts.profile.identity_attestation_hash;
         session.settled_amount = 0;
         session.aggregate_offline_exposure = 0;
+        session.unique_edge_count = 0;
         session.conflicting_claim_count = 0;
         session.resolution_hash = [0; 32];
         session.bump = ctx.bumps.session;
@@ -251,6 +265,295 @@ pub mod offline_guarantee {
         });
         Ok(())
     }
+
+    pub fn register_device_authorization(
+        ctx: Context<RegisterDeviceAuthorization>,
+        device_authorization_hash: [u8; 32],
+    ) -> Result<()> {
+        require_not_paused(&ctx.accounts.config)?;
+        require!(
+            device_authorization_hash.iter().any(|byte| *byte != 0),
+            OgpError::InvalidSessionMaterial
+        );
+        require!(
+            ctx.accounts.session.device_authorization_hash == [0; 32],
+            OgpError::InvalidSessionMaterial
+        );
+        ctx.accounts.session.device_authorization_hash = device_authorization_hash;
+        emit!(DeviceAuthorizationRegistered {
+            session: ctx.accounts.session.key(),
+            owner: ctx.accounts.owner.key(),
+            device_authorization_hash,
+        });
+        Ok(())
+    }
+
+    pub fn submit_claim(
+        ctx: Context<SubmitClaim>,
+        credential_payload: Vec<u8>,
+        payer_signature: [u8; 64],
+    ) -> Result<()> {
+        require_not_paused(&ctx.accounts.config)?;
+        require!(
+            matches!(
+                ctx.accounts.session.status,
+                SessionStatus::Active | SessionStatus::ClaimWindow
+            ),
+            OgpError::InvalidSessionStatus
+        );
+        require!(
+            ctx.accounts
+                .session
+                .device_authorization_hash
+                .iter()
+                .any(|byte| *byte != 0),
+            OgpError::InvalidSessionMaterial
+        );
+        validate_ed25519_instruction(
+            &ctx.accounts.instructions.to_account_info(),
+            &credential_payload,
+            &payer_signature,
+        )?;
+        let clock = Clock::get()?;
+        let validated = validate_claim_payload(
+            &ctx.accounts.config,
+            &ctx.accounts.session,
+            ctx.accounts.merchant.key(),
+            clock.unix_timestamp,
+            &credential_payload,
+            &payer_signature,
+        )?;
+
+        let session_key = ctx.accounts.session.key();
+        let payload = validated.payload;
+        let (expected_claim, claim_bump) = Pubkey::find_program_address(
+            &[b"claim", session_key.as_ref(), &validated.credential_hash],
+            &crate::ID,
+        );
+        require_keys_eq!(
+            expected_claim,
+            ctx.accounts.claim.key(),
+            OgpError::InvalidClaimAccount
+        );
+        let sequence_bytes = payload.sequence.to_le_bytes();
+        let (expected_edge, edge_bump) = Pubkey::find_program_address(
+            &[
+                b"edge",
+                session_key.as_ref(),
+                &payload.previous_state_hash,
+                &sequence_bytes,
+                &payload.new_state_hash,
+            ],
+            &crate::ID,
+        );
+        require_keys_eq!(
+            expected_edge,
+            ctx.accounts.state_edge.key(),
+            OgpError::InvalidClaimAccount
+        );
+
+        if ctx.accounts.claim.owner == &crate::ID {
+            let existing: Claim = read_program_account(&ctx.accounts.claim)?;
+            require!(
+                existing.credential_hash != validated.credential_hash,
+                OgpError::DuplicateCredential
+            );
+            return err!(OgpError::InvalidClaimAccount);
+        }
+
+        let existing_edge = if ctx.accounts.state_edge.owner == &crate::ID {
+            let edge: StateEdgeRecord = read_program_account(&ctx.accounts.state_edge)?;
+            require!(
+                edge.session == session_key
+                    && edge.previous_state_hash == payload.previous_state_hash
+                    && edge.sequence == payload.sequence
+                    && edge.new_state_hash == payload.new_state_hash
+                    && edge.merchant == ctx.accounts.merchant.key()
+                    && edge.amount == payload.amount
+                    && edge.previous_remaining == payload.previous_remaining
+                    && edge.new_remaining == payload.new_remaining,
+                OgpError::InvalidClaimAccount
+            );
+            Some(edge)
+        } else {
+            None
+        };
+
+        if existing_edge.is_none() {
+            validate_reachable_parent(
+                session_key,
+                &ctx.accounts.session,
+                &ctx.accounts.parent_edge.to_account_info(),
+                &payload,
+            )?;
+        }
+
+        let claim_bump_seed = [claim_bump];
+        let claim_seeds: &[&[u8]] = &[
+            b"claim",
+            session_key.as_ref(),
+            &validated.credential_hash,
+            &claim_bump_seed,
+        ];
+        create_program_pda(
+            &ctx.accounts.relayer.to_account_info(),
+            &ctx.accounts.claim.to_account_info(),
+            &ctx.accounts.system_program.to_account_info(),
+            Claim::SPACE,
+            claim_seeds,
+        )?;
+
+        let is_unique_edge = existing_edge.is_none();
+        let rejection_reason = if is_unique_edge {
+            ClaimRejectionReason::None
+        } else {
+            ClaimRejectionReason::DuplicateStateEdge
+        };
+        let claim = Claim {
+            credential_hash: validated.credential_hash,
+            session: session_key,
+            merchant: ctx.accounts.merchant.key(),
+            amount: payload.amount,
+            sequence: payload.sequence,
+            previous_state_hash: payload.previous_state_hash,
+            new_state_hash: payload.new_state_hash,
+            submitted_slot: clock.slot,
+            status: if is_unique_edge {
+                ClaimStatus::Submitted
+            } else {
+                ClaimStatus::Rejected
+            },
+            rejection_reason,
+            allocated_amount: 0,
+            settled_amount: 0,
+            bump: claim_bump,
+        };
+        write_program_account(&ctx.accounts.claim, &claim)?;
+
+        if let Some(mut edge) = existing_edge {
+            edge.wrapper_count = edge
+                .wrapper_count
+                .checked_add(1)
+                .ok_or(OgpError::ArithmeticOverflow)?;
+            edge.representative_credential_hash = edge
+                .representative_credential_hash
+                .min(validated.credential_hash);
+            write_program_account(&ctx.accounts.state_edge, &edge)?;
+        } else {
+            let edge_bump_seed = [edge_bump];
+            let edge_seeds: &[&[u8]] = &[
+                b"edge",
+                session_key.as_ref(),
+                &payload.previous_state_hash,
+                &sequence_bytes,
+                &payload.new_state_hash,
+                &edge_bump_seed,
+            ];
+            create_program_pda(
+                &ctx.accounts.relayer.to_account_info(),
+                &ctx.accounts.state_edge.to_account_info(),
+                &ctx.accounts.system_program.to_account_info(),
+                StateEdgeRecord::SPACE,
+                edge_seeds,
+            )?;
+            let edge = StateEdgeRecord {
+                session: session_key,
+                previous_state_hash: payload.previous_state_hash,
+                sequence: payload.sequence,
+                new_state_hash: payload.new_state_hash,
+                merchant: ctx.accounts.merchant.key(),
+                amount: payload.amount,
+                previous_remaining: payload.previous_remaining,
+                new_remaining: payload.new_remaining,
+                representative_credential_hash: validated.credential_hash,
+                wrapper_count: 1,
+                submitted_slot: clock.slot,
+                allocated_amount: 0,
+                settled_amount: 0,
+                bump: edge_bump,
+            };
+            write_program_account(&ctx.accounts.state_edge, &edge)?;
+            ctx.accounts.session.aggregate_offline_exposure = ctx
+                .accounts
+                .session
+                .aggregate_offline_exposure
+                .checked_add(payload.amount)
+                .ok_or(OgpError::ArithmeticOverflow)?;
+            ctx.accounts.session.unique_edge_count = ctx
+                .accounts
+                .session
+                .unique_edge_count
+                .checked_add(1)
+                .ok_or(OgpError::ArithmeticOverflow)?;
+        }
+        if clock.unix_timestamp > ctx.accounts.session.expires_at
+            && ctx.accounts.session.status == SessionStatus::Active
+        {
+            ctx.accounts.session.status = SessionStatus::ClaimWindow;
+        }
+
+        emit!(ClaimSubmitted {
+            claim: ctx.accounts.claim.key(),
+            state_edge: ctx.accounts.state_edge.key(),
+            session: session_key,
+            credential_hash: validated.credential_hash,
+            merchant: ctx.accounts.merchant.key(),
+            amount: payload.amount,
+            sequence: payload.sequence,
+            is_unique_edge,
+            rejection_reason,
+            aggregate_offline_exposure: ctx.accounts.session.aggregate_offline_exposure,
+            unique_edge_count: ctx.accounts.session.unique_edge_count,
+            submitted_slot: clock.slot,
+        });
+        Ok(())
+    }
+}
+
+fn validate_reachable_parent(
+    session_key: Pubkey,
+    session: &OfflineSession,
+    parent_info: &AccountInfo,
+    payload: &claims::PaymentCredentialPayloadV1,
+) -> Result<()> {
+    if payload.sequence == 1 {
+        require_keys_eq!(*parent_info.key, session_key, OgpError::InvalidClaimParent);
+        require!(
+            payload.previous_state_hash == session.genesis_state_hash
+                && payload.previous_remaining == session.branch_spending_limit,
+            OgpError::InvalidClaimParent
+        );
+        return Ok(());
+    }
+    let parent: StateEdgeRecord = read_program_account(parent_info)?;
+    let parent_sequence = parent
+        .sequence
+        .checked_add(1)
+        .ok_or(OgpError::ArithmeticOverflow)?;
+    require!(
+        parent.session == session_key
+            && parent.new_state_hash == payload.previous_state_hash
+            && parent_sequence == payload.sequence
+            && parent.new_remaining == payload.previous_remaining,
+        OgpError::InvalidClaimParent
+    );
+    let sequence_bytes = parent.sequence.to_le_bytes();
+    let (expected_parent, _) = Pubkey::find_program_address(
+        &[
+            b"edge",
+            session_key.as_ref(),
+            &parent.previous_state_hash,
+            &sequence_bytes,
+            &parent.new_state_hash,
+        ],
+        &crate::ID,
+    );
+    require_keys_eq!(
+        expected_parent,
+        *parent_info.key,
+        OgpError::InvalidClaimParent
+    );
+    Ok(())
 }
 
 fn require_not_paused(config: &ProtocolConfig) -> Result<()> {
@@ -262,22 +565,14 @@ fn can_change_pause(admin: Pubkey, emergency: Pubkey, authority: Pubkey, paused:
     authority == admin || (paused && authority == emergency)
 }
 
-fn validate_session_material(
-    owner: Pubkey,
-    device: Pubkey,
-    session_id: &[u8; 32],
-    genesis_state_hash: &[u8; 32],
-    device_authorization_hash: &[u8; 32],
-) -> Result<()> {
+fn validate_session_material(owner: Pubkey, device: Pubkey, session_id: &[u8; 32]) -> Result<()> {
     require!(
         device != Pubkey::default(),
         OgpError::InvalidSessionMaterial
     );
     require!(device != owner, OgpError::DeviceKeyEqualsOwner);
     require!(
-        session_id.iter().any(|byte| *byte != 0)
-            && genesis_state_hash.iter().any(|byte| *byte != 0)
-            && device_authorization_hash.iter().any(|byte| *byte != 0),
+        session_id.iter().any(|byte| *byte != 0),
         OgpError::InvalidSessionMaterial
     );
     Ok(())
@@ -383,6 +678,39 @@ pub struct CreateOfflineSession<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct RegisterDeviceAuthorization<'info> {
+    #[account(seeds = [b"config"], bump = config.bump)]
+    pub config: Account<'info, ProtocolConfig>,
+    pub owner: Signer<'info>,
+    #[account(mut, seeds = [b"session", owner.key().as_ref(), session.session_id.as_ref()], bump = session.bump, has_one = owner)]
+    pub session: Box<Account<'info, OfflineSession>>,
+}
+
+#[derive(Accounts)]
+pub struct SubmitClaim<'info> {
+    #[account(seeds = [b"config"], bump = config.bump)]
+    pub config: Account<'info, ProtocolConfig>,
+    #[account(mut, seeds = [b"session", session.owner.as_ref(), session.session_id.as_ref()], bump = session.bump)]
+    pub session: Box<Account<'info, OfflineSession>>,
+    /// CHECK: Compared byte-for-byte with the signed credential settlement destination.
+    pub merchant: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub relayer: Signer<'info>,
+    /// CHECK: Exact PDA, owner, discriminator, and data are validated in the handler.
+    #[account(mut)]
+    pub claim: UncheckedAccount<'info>,
+    /// CHECK: Exact PDA, owner, discriminator, and data are validated in the handler.
+    #[account(mut)]
+    pub state_edge: UncheckedAccount<'info>,
+    /// CHECK: Session sentinel for sequence one or a fully validated StateEdgeRecord PDA.
+    pub parent_edge: UncheckedAccount<'info>,
+    /// CHECK: Address constraint pins the canonical instructions sysvar.
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 #[event]
 pub struct ProtocolInitialized {
     pub config: Pubkey,
@@ -391,7 +719,32 @@ pub struct ProtocolInitialized {
     pub identity_authority: Pubkey,
     pub certificate_issuer: Pubkey,
     pub settlement_mint: Pubkey,
+    pub network_id: u8,
+    pub cluster_genesis_hash: [u8; 32],
     pub minimum_collateral_ratio_bps: u32,
+}
+
+#[event]
+pub struct ClaimSubmitted {
+    pub claim: Pubkey,
+    pub state_edge: Pubkey,
+    pub session: Pubkey,
+    pub credential_hash: [u8; 32],
+    pub merchant: Pubkey,
+    pub amount: u64,
+    pub sequence: u32,
+    pub is_unique_edge: bool,
+    pub rejection_reason: ClaimRejectionReason,
+    pub aggregate_offline_exposure: u64,
+    pub unique_edge_count: u64,
+    pub submitted_slot: u64,
+}
+
+#[event]
+pub struct DeviceAuthorizationRegistered {
+    pub session: Pubkey,
+    pub owner: Pubkey,
+    pub device_authorization_hash: [u8; 32],
 }
 
 #[event]
@@ -459,10 +812,12 @@ mod tests {
 
     #[test]
     fn account_spaces_are_frozen() {
-        assert_eq!(ProtocolConfig::SPACE, 194);
+        assert_eq!(ProtocolConfig::SPACE, 227);
         assert_eq!(UserProfile::SPACE, 163);
         assert_eq!(CollateralVault::SPACE, 130);
-        assert_eq!(OfflineSession::SPACE, 344);
+        assert_eq!(OfflineSession::SPACE, 352);
+        assert_eq!(Claim::SPACE, 207);
+        assert_eq!(StateEdgeRecord::SPACE, 225);
     }
 
     #[test]
@@ -486,12 +841,9 @@ mod tests {
         let owner = Pubkey::new_unique();
         let device = Pubkey::new_unique();
         let nonzero = [1; 32];
-        assert!(validate_session_material(owner, device, &nonzero, &nonzero, &nonzero).is_ok());
-        assert!(
-            validate_session_material(owner, Pubkey::default(), &nonzero, &nonzero, &nonzero)
-                .is_err()
-        );
-        assert!(validate_session_material(owner, owner, &nonzero, &nonzero, &nonzero).is_err());
-        assert!(validate_session_material(owner, device, &[0; 32], &nonzero, &nonzero).is_err());
+        assert!(validate_session_material(owner, device, &nonzero).is_ok());
+        assert!(validate_session_material(owner, Pubkey::default(), &nonzero).is_err());
+        assert!(validate_session_material(owner, owner, &nonzero).is_err());
+        assert!(validate_session_material(owner, device, &[0; 32]).is_err());
     }
 }

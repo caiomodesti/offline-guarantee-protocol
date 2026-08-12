@@ -21,3 +21,6 @@ anchor-debug = ["anchor-lang/anchor-debug", "anchor-spl/anchor-debug"]
 [dependencies]
 anchor-lang = { version = "=1.0.2", features = ["derive"] }
 anchor-spl = { version = "=1.0.2", default-features = false, features = ["token", "token_2022"] }
+solana-instructions-sysvar = "=3.0.1"
+solana-sdk-ids = "=3.1.0"
+solana-sha256-hasher = { version = "=3.1.0", features = ["sha2"] }
