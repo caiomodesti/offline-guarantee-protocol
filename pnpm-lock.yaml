@@ -26,6 +26,9 @@ importers:
       '@ogp/protocol-sdk':
         specifier: workspace:*
         version: link:packages/protocol-sdk
+      '@ogp/reconciliation':
+        specifier: workspace:*
+        version: link:packages/reconciliation
       '@ogp/shared-types':
         specifier: workspace:*
         version: link:packages/shared-types
@@ -97,6 +100,15 @@ importers:
         version: link:../shared-types
 
   packages/protocol-sdk: {}
+
+  packages/reconciliation:
+    dependencies:
+      '@ogp/crypto':
+        specifier: workspace:*
+        version: link:../crypto
+      '@ogp/offline-ledger':
+        specifier: workspace:*
+        version: link:../offline-ledger
 
   packages/shared-types: {}
 

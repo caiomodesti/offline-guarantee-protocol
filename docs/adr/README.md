@@ -17,5 +17,6 @@
 | [0013](0013-remote-linux-runtime-acceptance.md) | Reproducible remote Linux SBF/runtime acceptance | Accepted for MVP |
 | [0014](0014-post-confirmation-portable-authorization.md) | Post-confirmation portable device authorization and on-chain genesis derivation | Accepted for MVP |
 | [0015](0015-sprint-4-claim-verification.md) | Native Ed25519 claim verification and economic-edge indexing | Accepted for MVP |
+| [0016](0016-sprint-5-deterministic-reconciliation.md) | Sprint 5 deterministic reconciliation boundary | Accepted for MVP |
 
 “Accepted for MVP design” does not authorize implementation before the relevant sprint.

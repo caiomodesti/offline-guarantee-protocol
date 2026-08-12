@@ -7,6 +7,7 @@
     { "path": "packages/credentials" },
     { "path": "packages/offline-ledger" },
     { "path": "packages/protocol-sdk" },
+    { "path": "packages/reconciliation" },
     { "path": "tests/runtime" }
   ]
 }
