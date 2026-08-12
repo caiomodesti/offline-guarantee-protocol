@@ -22,4 +22,4 @@ startup_wait = 20000
 
 [test.validator]
 ledger = "test-ledger"
-limit_ledger_size = 10000
+limit_ledger_size = "10000"
