@@ -418,9 +418,10 @@ await airdrop(pauseFreshOwner.publicKey, 5);
 await setPaused(admin, true);
 const pausedConfig = await program.account.protocolConfig.fetch(config);
 assert.equal(pausedConfig.paused, true);
+const pauseFreshIdentityExpiry = (await chainNow()) + 3600;
 await expectFailure("paused profile", () =>
   program.methods
-    .createUserProfile(nonzero(71), new BN((await chainNow()) + 3600))
+    .createUserProfile(nonzero(71), new BN(pauseFreshIdentityExpiry))
     .accounts({
       config,
       identityAuthority: identity.publicKey,

@@ -374,7 +374,7 @@ pub struct CreateOfflineSession<'info> {
     #[account(seeds = [b"vault-token", vault.key().as_ref()], bump = vault.token_account_bump, token::mint = settlement_mint, token::authority = vault)]
     pub vault_token: Account<'info, TokenAccount>,
     #[account(init, payer = owner, space = OfflineSession::SPACE, seeds = [b"session", owner.key().as_ref(), session_id.as_ref()], bump)]
-    pub session: Account<'info, OfflineSession>,
+    pub session: Box<Account<'info, OfflineSession>>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 }
