@@ -479,12 +479,15 @@ pass("failed deposit rollback", "CPI failure leaves SPL balances and protocol ac
 const clockUser = await prepareUser(60);
 const clockNow = await chainNow();
 await expectFailure("expired session", () => createSession(clockUser, 61, 300, 100, clockNow));
-await expectFailure("session beyond three hours", () => createSession(clockUser, 62, 300, 100, clockNow + 10_801));
-const clockValid = await createSession(clockUser, 63, 300, 100, clockNow + 10_800);
+// Leave a deterministic margin for the validator clock advancing between the
+// sampled block time and transaction execution. The exact 10,800-second
+// boundary is covered by the pure program test.
+await expectFailure("session beyond three hours", () => createSession(clockUser, 62, 300, 100, clockNow + 10_830));
+const clockValid = await createSession(clockUser, 63, 300, 100, clockNow + 10_700);
 const clockState = await program.account.offlineSession.fetch(clockValid.session);
 assert(asNumber(clockState.issuedAt) <= asNumber(clockState.expiresAt));
 assert(asNumber(clockState.expiresAt) - asNumber(clockState.issuedAt) <= 10_800);
-pass("Solana Clock window bounds", "expired and >3h fail; small/exact-bound duration passes");
+pass("Solana Clock window bounds", "expired and unambiguously >3h fail; an in-window duration passes; exact boundary is host-tested");
 
 const pauseReady = await prepareUser(70);
 const pauseFreshOwner = Keypair.generate();
