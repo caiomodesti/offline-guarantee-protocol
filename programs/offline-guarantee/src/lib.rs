@@ -198,6 +198,10 @@ pub mod offline_guarantee {
             expires_at,
             ctx.accounts.config.max_session_duration_seconds,
         )?;
+        require!(
+            ctx.accounts.profile.identity_expires_at >= expires_at,
+            OgpError::IdentityExpired
+        );
         let deadline =
             claim_submission_deadline(expires_at, ctx.accounts.config.claim_grace_period_seconds)?;
         let new_reserved = checked_reservation(

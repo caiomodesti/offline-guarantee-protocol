@@ -216,12 +216,16 @@ type PreparedUser = {
   ownerToken: PublicKey;
 };
 
-async function prepareUser(seed: number, depositAmount = 300): Promise<PreparedUser> {
+async function prepareUser(
+  seed: number,
+  depositAmount = 300,
+  identityLifetimeSeconds = 86_400,
+): Promise<PreparedUser> {
   const owner = Keypair.generate();
   await airdrop(owner.publicKey, 10);
   const profile = profilePda(owner.publicKey);
   const profileSignature = await program.methods
-    .createUserProfile(nonzero(seed), new BN((await chainNow()) + 86_400))
+    .createUserProfile(nonzero(seed), new BN((await chainNow()) + identityLifetimeSeconds))
     .accounts({
       config,
       identityAuthority: identity.publicKey,
@@ -375,6 +379,19 @@ assert.equal(underVaultAfter.reservedAmount.toString(), underVaultBefore.reserve
 assert.equal(underProfileAfter.activeSession.toBase58(), underProfileBefore.activeSession.toBase58());
 assert.equal(await connection.getAccountInfo(underSession), null);
 pass("below 300% and atomic rollback", "299/100 rejected with no account or state residue");
+
+const staleIdentity = await prepareUser(35, 300, 300);
+const staleVaultBefore = await program.account.collateralVault.fetch(staleIdentity.vault);
+const staleProfileBefore = await program.account.userProfile.fetch(staleIdentity.profile);
+const staleSessionExpiry = (await chainNow()) + 600;
+await expectFailure("session outlives identity", () =>
+  createSession(staleIdentity, 36, 300, 100, staleSessionExpiry),
+);
+const staleVaultAfter = await program.account.collateralVault.fetch(staleIdentity.vault);
+const staleProfileAfter = await program.account.userProfile.fetch(staleIdentity.profile);
+assert.equal(staleVaultAfter.reservedAmount.toString(), staleVaultBefore.reservedAmount.toString());
+assert.equal(staleProfileAfter.activeSession.toBase58(), staleProfileBefore.activeSession.toBase58());
+pass("stale identity rejection", "session expiry cannot exceed identity expiry; rollback leaves no reservation");
 
 const accounting = await prepareUser(40);
 await transfer(connection, payer, accounting.ownerToken, accounting.vaultToken, accounting.owner, 50);
