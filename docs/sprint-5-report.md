@@ -43,6 +43,8 @@ cargo clippy --manifest-path programs/offline-guarantee/Cargo.toml --all-targets
 
 The Solana program and its accepted SBF artifact are unchanged from Sprint 4. Sprint 5 is a host-side reconstruction engine by schedule; it cannot mutate authoritative protocol state. Sprint 6 must add validator-backed witness/finalization and economic transitions before any authoritative demo incident message becomes available.
 
+Clean Linux acceptance [run 31618585829](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31618585829) passed the 34 TypeScript tests, six golden vectors, Rust conformance, 14 program tests, real SBF rebuild, and the complete 23-assertion validator regression suite at commit `8c8394d`.
+
 ## Hostile audit
 
 | Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
