@@ -722,6 +722,7 @@ async function submitRuntimeClaim(
   return provider.sendAndConfirm(
     new Transaction().add(verifierInstruction, claimInstruction),
     [],
+    { commitment: "confirmed", preflightCommitment: "confirmed" },
   );
 }
 
