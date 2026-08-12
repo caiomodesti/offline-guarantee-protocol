@@ -583,6 +583,10 @@ pass("post-confirmation authorization lifecycle", "genesis is derived from Solan
 
 const merchant = Keypair.generate();
 const otherMerchant = Keypair.generate();
+await Promise.all([
+  airdrop(merchant.publicKey, 1),
+  airdrop(otherMerchant.publicKey, 1),
+]);
 
 function buildCredential(
   merchantKey: PublicKey,
