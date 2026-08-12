@@ -30,7 +30,9 @@ const provider = AnchorProvider.env();
 setProvider(provider);
 const connection = provider.connection;
 const payer = provider.wallet.payer;
-assert(payer, "Anchor provider wallet must expose its payer keypair");
+if (!payer) {
+  throw new Error("Anchor provider wallet must expose its payer keypair");
+}
 
 const idl = JSON.parse(
   await readFile("target/idl/offline_guarantee.json", "utf8"),
