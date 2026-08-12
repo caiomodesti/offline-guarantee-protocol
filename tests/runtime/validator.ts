@@ -739,7 +739,7 @@ const firstEdgeState = decodeStateEdgeRecord(await fetchProgramAccount(firstEdge
 const sessionAfterFirstClaim = await program.account.offlineSession.fetch(claimsSession);
 assert.equal(firstClaimState.status, "submitted");
 assert.equal(firstClaimState.rejectionReason, "none");
-assert.deepEqual(firstClaimState.merchant, merchant.publicKey.toBytes());
+assert.deepEqual(Array.from(firstClaimState.merchant), Array.from(merchant.publicKey.toBytes()));
 assert.equal(firstEdgeState.wrapperCount, 1);
 assert.equal(asNumber(sessionAfterFirstClaim.aggregateOfflineExposure), 25);
 assert.equal(asNumber(sessionAfterFirstClaim.uniqueEdgeCount), 1);
