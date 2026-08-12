@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { AnchorProvider, BN, Program, setProvider, type Idl } from "@anchor-lang/core";
+import { AnchorProvider, Program, setProvider, type Idl } from "@anchor-lang/core";
 import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccount,
@@ -51,8 +51,12 @@ const report: RuntimeReport = {
 };
 
 function pass(name: string, evidence?: string): void {
-  report.tests.push({ name, status: "PASS", evidence });
+  report.tests.push(evidence === undefined ? { name, status: "PASS" } : { name, status: "PASS", evidence });
   console.log(`PASS ${name}${evidence ? ` - ${evidence}` : ""}`);
+}
+
+function asNumber(value: bigint | { toString(): string }): number {
+  return Number(value.toString());
 }
 
 async function expectFailure(label: string, operation: () => Promise<unknown>): Promise<void> {
@@ -158,8 +162,8 @@ const initializeSignature = await program.methods
 await recordCompute("initialize_protocol", initializeSignature);
 const configState = await program.account.protocolConfig.fetch(config);
 assert.equal(configState.minimumCollateralRatioBps, 30_000);
-assert.equal(configState.maxSessionDurationSeconds.toNumber(), 10_800);
-assert.equal(configState.claimGracePeriodSeconds.toNumber(), 21_600);
+assert.equal(asNumber(configState.maxSessionDurationSeconds), 10_800);
+assert.equal(asNumber(configState.claimGracePeriodSeconds), 21_600);
 assert.equal(configState.maxBranchDepth, 32);
 assert.equal(configState.paused, false);
 assert.equal(configState.admin.toBase58(), admin.publicKey.toBase58());
@@ -179,7 +183,7 @@ async function setPaused(authority: Keypair, paused: boolean): Promise<string> {
 await expectFailure("random signer profile creation", async () => {
   const owner = Keypair.generate();
   await program.methods
-    .createUserProfile(nonzero(1), new BN((await chainNow()) + 3600))
+    .createUserProfile(nonzero(1), BigInt((await chainNow()) + 3600))
     .accounts({
       config,
       identityAuthority: randomSigner.publicKey,
@@ -213,7 +217,7 @@ async function prepareUser(seed: number, depositAmount = 300): Promise<PreparedU
   await airdrop(owner.publicKey, 10);
   const profile = profilePda(owner.publicKey);
   const profileSignature = await program.methods
-    .createUserProfile(nonzero(seed), new BN((await chainNow()) + 86_400))
+    .createUserProfile(nonzero(seed), BigInt((await chainNow()) + 86_400))
     .accounts({
       config,
       identityAuthority: identity.publicKey,
@@ -255,7 +259,7 @@ async function prepareUser(seed: number, depositAmount = 300): Promise<PreparedU
   await mintTo(connection, payer, settlementMint, ownerToken, payer, 1000);
   if (depositAmount > 0) {
     const depositSignature = await program.methods
-      .depositCollateral(new BN(depositAmount))
+      .depositCollateral(BigInt(depositAmount))
       .accounts({
         config,
         settlementMint,
@@ -287,9 +291,9 @@ async function createSession(
     .createOfflineSession(
       Array.from(sessionId),
       Keypair.generate().publicKey,
-      new BN(locked),
-      new BN(limit),
-      new BN(expiresAt),
+      BigInt(locked),
+      BigInt(limit),
+      BigInt(expiresAt),
       nonzero(seed + 33),
       nonzero(seed + 66),
     )
@@ -312,12 +316,12 @@ async function createSession(
 const main = await prepareUser(10);
 assert.equal((await getAccount(connection, main.ownerToken)).amount, 700n);
 assert.equal((await getAccount(connection, main.vaultToken)).amount, 300n);
-assert.equal((await program.account.collateralVault.fetch(main.vault)).depositedAmount.toNumber(), 300);
+assert.equal(asNumber((await program.account.collateralVault.fetch(main.vault)).depositedAmount), 300);
 pass("real SPL deposit CPI", "1000 -> 700 owner, 300 vault, deposited_amount=300");
 
 await transfer(connection, payer, main.ownerToken, main.vaultToken, main.owner, 50);
 assert.equal((await getAccount(connection, main.vaultToken)).amount, 350n);
-assert.equal((await program.account.collateralVault.fetch(main.vault)).depositedAmount.toNumber(), 300);
+assert.equal(asNumber((await program.account.collateralVault.fetch(main.vault)).depositedAmount), 300);
 pass("direct donation accounting", "actual balance=350 while deposited_amount remains 300");
 
 const decodedVaultToken = await getAccount(connection, main.vaultToken);
@@ -332,14 +336,14 @@ const mainSession = await program.account.offlineSession.fetch(valid.session);
 const mainVault = await program.account.collateralVault.fetch(main.vault);
 const mainProfile = await program.account.userProfile.fetch(main.profile);
 assert("active" in mainSession.status);
-assert.equal(mainSession.collateralLocked.toNumber(), 300);
-assert.equal(mainSession.collateralCoverageCap.toNumber(), 300);
-assert.equal(mainSession.branchSpendingLimit.toNumber(), 100);
-assert.equal(mainSession.aggregateOfflineExposure.toNumber(), 0);
-assert.equal(mainVault.reservedAmount.toNumber(), 300);
+assert.equal(asNumber(mainSession.collateralLocked), 300);
+assert.equal(asNumber(mainSession.collateralCoverageCap), 300);
+assert.equal(asNumber(mainSession.branchSpendingLimit), 100);
+assert.equal(asNumber(mainSession.aggregateOfflineExposure), 0);
+assert.equal(asNumber(mainVault.reservedAmount), 300);
 assert.equal(mainProfile.activeSession.toBase58(), valid.session.toBase58());
-assert.equal(mainSession.claimSubmissionDeadline.toNumber(), mainSession.expiresAt.toNumber() + 21_600);
-assert(Math.abs(mainSession.issuedAt.toNumber() - nowForMain) <= 10);
+assert.equal(asNumber(mainSession.claimSubmissionDeadline), asNumber(mainSession.expiresAt) + 21_600);
+assert(Math.abs(asNumber(mainSession.issuedAt) - nowForMain) <= 10);
 pass("valid exact 300% session", "coverage cap derived on-chain and full collateral reserved");
 pass("Solana Clock and claim deadline", "issued_at is runtime-derived; deadline=expires_at+21600");
 
@@ -348,7 +352,7 @@ const secondSession = sessionPda(main.owner.publicKey, secondSessionId);
 await expectFailure("second active session", async () =>
   createSession(main, 21, 300, 100, (await chainNow()) + 3600),
 );
-assert.equal((await program.account.collateralVault.fetch(main.vault)).reservedAmount.toNumber(), 300);
+assert.equal(asNumber((await program.account.collateralVault.fetch(main.vault)).reservedAmount), 300);
 assert.equal((await program.account.userProfile.fetch(main.profile)).activeSession.toBase58(), valid.session.toBase58());
 assert.equal(await connection.getAccountInfo(secondSession), null);
 pass("single active session", "no second reservation or session account survived");
@@ -374,7 +378,7 @@ assert.equal((await getAccount(connection, accounting.vaultToken)).amount, 350n)
 await expectFailure("reserve above deposited accounting", async () =>
   createSession(accounting, 41, 320, 100, (await chainNow()) + 3600),
 );
-assert.equal((await program.account.collateralVault.fetch(accounting.vault)).reservedAmount.toNumber(), 0);
+assert.equal(asNumber((await program.account.collateralVault.fetch(accounting.vault)).reservedAmount), 0);
 assert.equal((await program.account.userProfile.fetch(accounting.profile)).activeSession.toBase58(), PublicKey.default.toBase58());
 pass("accounting versus real balance", "320<=350 real balance but 320>300 deposited_amount is rejected");
 
@@ -384,7 +388,7 @@ const failedOwnerBalanceBefore = (await getAccount(connection, failedDepositUser
 const failedVaultBalanceBefore = (await getAccount(connection, failedDepositUser.vaultToken)).amount;
 await expectFailure("failed deposit CPI", () =>
   program.methods
-    .depositCollateral(new BN(1000))
+    .depositCollateral(1000n)
     .accounts({
       config,
       settlementMint,
@@ -408,8 +412,8 @@ await expectFailure("expired session", () => createSession(clockUser, 61, 300, 1
 await expectFailure("session beyond three hours", () => createSession(clockUser, 62, 300, 100, clockNow + 10_801));
 const clockValid = await createSession(clockUser, 63, 300, 100, clockNow + 10_800);
 const clockState = await program.account.offlineSession.fetch(clockValid.session);
-assert(clockState.issuedAt.toNumber() <= clockState.expiresAt.toNumber());
-assert(clockState.expiresAt.toNumber() - clockState.issuedAt.toNumber() <= 10_800);
+assert(asNumber(clockState.issuedAt) <= asNumber(clockState.expiresAt));
+assert(asNumber(clockState.expiresAt) - asNumber(clockState.issuedAt) <= 10_800);
 pass("Solana Clock window bounds", "expired and >3h fail; small/exact-bound duration passes");
 
 const pauseReady = await prepareUser(70);
@@ -421,7 +425,7 @@ assert.equal(pausedConfig.paused, true);
 const pauseFreshIdentityExpiry = (await chainNow()) + 3600;
 await expectFailure("paused profile", () =>
   program.methods
-    .createUserProfile(nonzero(71), new BN(pauseFreshIdentityExpiry))
+    .createUserProfile(nonzero(71), BigInt(pauseFreshIdentityExpiry))
     .accounts({
       config,
       identityAuthority: identity.publicKey,
@@ -450,7 +454,7 @@ await expectFailure("paused vault", () =>
 );
 await expectFailure("paused deposit", () =>
   program.methods
-    .depositCollateral(new BN(1))
+    .depositCollateral(1n)
     .accounts({
       config,
       settlementMint,
@@ -466,7 +470,7 @@ await expectFailure("paused deposit", () =>
 await expectFailure("paused session", async () =>
   createSession(pauseReady, 72, 300, 100, (await chainNow()) + 3600),
 );
-assert.equal((await program.account.collateralVault.fetch(pauseReady.vault)).reservedAmount.toNumber(), 0);
+assert.equal(asNumber((await program.account.collateralVault.fetch(pauseReady.vault)).reservedAmount), 0);
 assert.equal((await program.account.userProfile.fetch(pauseReady.profile)).activeSession.toBase58(), PublicKey.default.toBase58());
 await setPaused(admin, false);
 pass("pause gate", "profile, vault, deposit and session fail without state corruption");

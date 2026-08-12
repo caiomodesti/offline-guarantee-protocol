@@ -5,6 +5,7 @@
     { "path": "packages/canonical-codec" },
     { "path": "packages/crypto" },
     { "path": "packages/credentials" },
-    { "path": "packages/offline-ledger" }
+    { "path": "packages/offline-ledger" },
+    { "path": "tests/runtime" }
   ]
 }
