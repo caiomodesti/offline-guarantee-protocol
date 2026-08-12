@@ -22,7 +22,7 @@ The certificate issuer signature remains required for offline merchant acceptanc
 
 Every unique wrapper maps to `Claim[session, credential_hash]`. Every economic transition maps to `StateEdgeRecord[session, parent_hash, sequence, child_hash]`. A new edge increments session exposure and edge count once. A second valid wrapper for the same edge creates a diagnostic rejected claim, increments only `wrapper_count`, and updates the lexicographically smallest representative hash. Exact replay fails with `DuplicateCredential`.
 
-Claim and edge accounts plus `ClaimSubmitted` events form the rebuildable MVP index. Full evidence remains with merchants. No fork classification, allocation, settlement, collateral release, or revocation occurs in Sprint 4.
+Claim and edge accounts plus `ClaimSubmitted` events form the rebuildable MVP index. Because these accounts are initialized manually to support idempotent edge insertion, the Anchor IDL does not discover their layouts automatically. `@ogp/protocol-sdk` is therefore the canonical strict decoder: it verifies the exact account size and discriminator before decoding the fixed Sprint 4 byte layout. Indexers must also verify the account owner against the configured program ID. Full evidence remains with merchants. No fork classification, allocation, settlement, collateral release, or revocation occurs in Sprint 4.
 
 ## Consequences
 

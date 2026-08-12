@@ -5,6 +5,7 @@ import { encodePaymentCredentialPayload } from "@ogp/canonical-codec";
 import { createDomain, createGenesisState, genesisStateHash, paymentStateHash } from "@ogp/credentials";
 import { derivePublicKey, generateSecretKey, hashSha256, signEd25519 } from "@ogp/crypto";
 import { NetworkId, ObjectType, type DomainContext, type PaymentCredentialPayload, type PaymentState } from "@ogp/shared-types";
+import { decodeClaim, decodeStateEdgeRecord } from "@ogp/protocol-sdk";
 import BN from "bn.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -159,6 +160,13 @@ function edgePda(
     ],
     program.programId,
   )[0];
+}
+
+async function fetchProgramAccount(address: PublicKey): Promise<Uint8Array> {
+  const account = await connection.getAccountInfo(address, "confirmed");
+  assert(account !== null, `missing program account ${address.toBase58()}`);
+  assert.equal(account.owner.toBase58(), program.programId.toBase58());
+  return account.data;
 }
 
 function nonzero(seed: number): number[] {
@@ -722,13 +730,13 @@ const firstClaim = claimPda(claimsSession, firstCredential.credentialHash);
 const firstEdge = edgePda(claimsSession, genesisHash, 1, firstCredential.stateHash);
 const firstClaimSignature = await submitRuntimeClaim(firstCredential, merchant.publicKey, claimsSession);
 await recordCompute("submit_claim", firstClaimSignature);
-const firstClaimState = await program.account.claim.fetch(firstClaim);
-const firstEdgeState = await program.account.stateEdgeRecord.fetch(firstEdge);
+const firstClaimState = decodeClaim(await fetchProgramAccount(firstClaim));
+const firstEdgeState = decodeStateEdgeRecord(await fetchProgramAccount(firstEdge));
 const sessionAfterFirstClaim = await program.account.offlineSession.fetch(claimsSession);
-assert("submitted" in firstClaimState.status);
-assert("none" in firstClaimState.rejectionReason);
-assert.equal(firstClaimState.merchant.toBase58(), merchant.publicKey.toBase58());
-assert.equal(asNumber(firstEdgeState.wrapperCount), 1);
+assert.equal(firstClaimState.status, "submitted");
+assert.equal(firstClaimState.rejectionReason, "none");
+assert.deepEqual(firstClaimState.merchant, merchant.publicKey.toBytes());
+assert.equal(firstEdgeState.wrapperCount, 1);
 assert.equal(asNumber(sessionAfterFirstClaim.aggregateOfflineExposure), 25);
 assert.equal(asNumber(sessionAfterFirstClaim.uniqueEdgeCount), 1);
 pass("real Ed25519 claim submission", "native verifier references the exact 410-byte Anchor argument; claim and economic edge are persisted");
@@ -794,12 +802,12 @@ assert.deepEqual(Array.from(wrapperCredential.stateHash), Array.from(firstCreden
 assert.notDeepEqual(Array.from(wrapperCredential.credentialHash), Array.from(firstCredential.credentialHash));
 await submitRuntimeClaim(wrapperCredential, merchant.publicKey, claimsSession);
 const wrapperClaim = claimPda(claimsSession, wrapperCredential.credentialHash);
-const wrapperClaimState = await program.account.claim.fetch(wrapperClaim);
-const edgeAfterWrapper = await program.account.stateEdgeRecord.fetch(firstEdge);
+const wrapperClaimState = decodeClaim(await fetchProgramAccount(wrapperClaim));
+const edgeAfterWrapper = decodeStateEdgeRecord(await fetchProgramAccount(firstEdge));
 const sessionAfterWrapper = await program.account.offlineSession.fetch(claimsSession);
-assert("rejected" in wrapperClaimState.status);
-assert("duplicateStateEdge" in wrapperClaimState.rejectionReason);
-assert.equal(asNumber(edgeAfterWrapper.wrapperCount), 2);
+assert.equal(wrapperClaimState.status, "rejected");
+assert.equal(wrapperClaimState.rejectionReason, "duplicateStateEdge");
+assert.equal(edgeAfterWrapper.wrapperCount, 2);
 assert.equal(asNumber(sessionAfterWrapper.aggregateOfflineExposure), 25);
 assert.equal(asNumber(sessionAfterWrapper.uniqueEdgeCount), 1);
 pass("economic state-edge idempotency", "distinct signed wrapper is indexed and rejected economically; authoritative counters remain one edge/25 units");

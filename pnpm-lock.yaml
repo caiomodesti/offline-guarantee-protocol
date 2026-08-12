@@ -23,6 +23,9 @@ importers:
       '@ogp/offline-ledger':
         specifier: workspace:*
         version: link:packages/offline-ledger
+      '@ogp/protocol-sdk':
+        specifier: workspace:*
+        version: link:packages/protocol-sdk
       '@ogp/shared-types':
         specifier: workspace:*
         version: link:packages/shared-types
@@ -92,6 +95,8 @@ importers:
       '@ogp/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+
+  packages/protocol-sdk: {}
 
   packages/shared-types: {}
 

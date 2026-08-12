@@ -6,6 +6,7 @@
     { "path": "packages/crypto" },
     { "path": "packages/credentials" },
     { "path": "packages/offline-ledger" },
+    { "path": "packages/protocol-sdk" },
     { "path": "tests/runtime" }
   ]
 }
