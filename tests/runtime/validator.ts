@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { AnchorProvider, Program, setProvider, type Idl } from "@anchor-lang/core";
+import BN from "bn.js";
 import {
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccount,
@@ -186,7 +187,7 @@ async function setPaused(authority: Keypair, paused: boolean): Promise<string> {
 await expectFailure("random signer profile creation", async () => {
   const owner = Keypair.generate();
   await program.methods
-    .createUserProfile(nonzero(1), BigInt((await chainNow()) + 3600))
+    .createUserProfile(nonzero(1), new BN((await chainNow()) + 3600))
     .accounts({
       config,
       identityAuthority: randomSigner.publicKey,
@@ -220,7 +221,7 @@ async function prepareUser(seed: number, depositAmount = 300): Promise<PreparedU
   await airdrop(owner.publicKey, 10);
   const profile = profilePda(owner.publicKey);
   const profileSignature = await program.methods
-    .createUserProfile(nonzero(seed), BigInt((await chainNow()) + 86_400))
+    .createUserProfile(nonzero(seed), new BN((await chainNow()) + 86_400))
     .accounts({
       config,
       identityAuthority: identity.publicKey,
@@ -262,7 +263,7 @@ async function prepareUser(seed: number, depositAmount = 300): Promise<PreparedU
   await mintTo(connection, payer, settlementMint, ownerToken, payer, 1000);
   if (depositAmount > 0) {
     const depositSignature = await program.methods
-      .depositCollateral(BigInt(depositAmount))
+      .depositCollateral(new BN(depositAmount))
       .accounts({
         config,
         settlementMint,
@@ -294,9 +295,9 @@ async function createSession(
     .createOfflineSession(
       Array.from(sessionId),
       Keypair.generate().publicKey,
-      BigInt(locked),
-      BigInt(limit),
-      BigInt(expiresAt),
+      new BN(locked),
+      new BN(limit),
+      new BN(expiresAt),
       nonzero(seed + 33),
       nonzero(seed + 66),
     )
@@ -391,7 +392,7 @@ const failedOwnerBalanceBefore = (await getAccount(connection, failedDepositUser
 const failedVaultBalanceBefore = (await getAccount(connection, failedDepositUser.vaultToken)).amount;
 await expectFailure("failed deposit CPI", () =>
   program.methods
-    .depositCollateral(1000n)
+    .depositCollateral(new BN(1000))
     .accounts({
       config,
       settlementMint,
@@ -428,7 +429,7 @@ assert.equal(pausedConfig.paused, true);
 const pauseFreshIdentityExpiry = (await chainNow()) + 3600;
 await expectFailure("paused profile", () =>
   program.methods
-    .createUserProfile(nonzero(71), BigInt(pauseFreshIdentityExpiry))
+    .createUserProfile(nonzero(71), new BN(pauseFreshIdentityExpiry))
     .accounts({
       config,
       identityAuthority: identity.publicKey,
@@ -457,7 +458,7 @@ await expectFailure("paused vault", () =>
 );
 await expectFailure("paused deposit", () =>
   program.methods
-    .depositCollateral(1n)
+    .depositCollateral(new BN(1))
     .accounts({
       config,
       settlementMint,
