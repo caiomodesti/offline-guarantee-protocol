@@ -97,6 +97,7 @@ jobs:
 
       - name: Warp persisted ledger past claim deadline and prove economic resolution
         run: |
+          agave-ledger-tool --ledger test-ledger create-snapshot ROOT test-ledger
           WARP_SLOT=$(node -e "const f=JSON.parse(require('fs').readFileSync('target/sprint-6-finalization-fixture.json')); process.stdout.write(String(f.slot + 100000))")
           solana-test-validator \
             --ledger test-ledger \

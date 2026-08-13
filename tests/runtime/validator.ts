@@ -1086,10 +1086,25 @@ const claimEntries = submittedClaimOrder.map((entry) => ({
     : firstEdge).toBase58(),
   credentialHash: Buffer.from(entry.hash).toString("hex"),
 }));
+const collectionSlot = await connection.getSlot("confirmed");
+const rootDeadline = Date.now() + 120_000;
+let finalizedSlot = await connection.getSlot("finalized");
+while (finalizedSlot < collectionSlot && Date.now() < rootDeadline) {
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  finalizedSlot = await connection.getSlot("finalized");
+}
+assert(
+  finalizedSlot >= collectionSlot,
+  `validator did not root collection slot ${collectionSlot}; finalized=${finalizedSlot}`,
+);
+pass(
+  "persisted-ledger root barrier",
+  `all phase-one state reached finalized slot ${finalizedSlot} before Anchor stopped the validator`,
+);
 await writeFile(
   "target/sprint-6-finalization-fixture.json",
   `${JSON.stringify({
-    slot: await connection.getSlot("confirmed"),
+    slot: collectionSlot,
     session: claimsSession.toBase58(),
     profile: claimsUser.profile.toBase58(),
     vault: claimsUser.vault.toBase58(),
