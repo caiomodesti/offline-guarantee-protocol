@@ -331,17 +331,17 @@ pub mod offline_guarantee {
             &payer_signature,
         )?;
         let clock = Clock::get()?;
-        let validated = validate_claim_payload(
+        let validated = Box::new(validate_claim_payload(
             &ctx.accounts.config,
             &ctx.accounts.session,
             ctx.accounts.merchant.key(),
             clock.unix_timestamp,
             &credential_payload,
             &payer_signature,
-        )?;
+        )?);
 
         let session_key = ctx.accounts.session.key();
-        let payload = validated.payload;
+        let payload = &validated.payload;
         let (expected_claim, claim_bump) = Pubkey::find_program_address(
             &[b"claim", session_key.as_ref(), &validated.credential_hash],
             &crate::ID,
@@ -383,7 +383,7 @@ pub mod offline_guarantee {
         );
 
         if ctx.accounts.claim.owner == &crate::ID {
-            let existing: Claim = read_program_account(&ctx.accounts.claim)?;
+            let existing = Box::new(read_program_account::<Claim>(&ctx.accounts.claim)?);
             require!(
                 existing.credential_hash != validated.credential_hash,
                 OgpError::DuplicateCredential
@@ -392,7 +392,9 @@ pub mod offline_guarantee {
         }
 
         let existing_edge = if ctx.accounts.state_edge.owner == &crate::ID {
-            let edge: StateEdgeRecord = read_program_account(&ctx.accounts.state_edge)?;
+            let edge = Box::new(read_program_account::<StateEdgeRecord>(
+                &ctx.accounts.state_edge,
+            )?);
             require!(
                 edge.session == session_key
                     && edge.previous_state_hash == payload.previous_state_hash
@@ -423,7 +425,9 @@ pub mod offline_guarantee {
                 ctx.accounts.representative_claim.key(),
                 OgpError::InvalidClaimAccount
             );
-            let representative: Claim = read_program_account(&ctx.accounts.representative_claim)?;
+            let representative = Box::new(read_program_account::<Claim>(
+                &ctx.accounts.representative_claim,
+            )?);
             require!(
                 representative.session == session_key
                     && representative.credential_hash == edge.representative_credential_hash
@@ -446,7 +450,7 @@ pub mod offline_guarantee {
                 session_key,
                 &ctx.accounts.session,
                 &ctx.accounts.parent_edge.to_account_info(),
-                &payload,
+                payload,
             )?;
         }
 
@@ -475,7 +479,7 @@ pub mod offline_guarantee {
         } else {
             ClaimRejectionReason::DuplicateStateEdge
         };
-        let claim = Claim {
+        let claim = Box::new(Claim {
             credential_hash: validated.credential_hash,
             session: session_key,
             merchant: ctx.accounts.merchant.key(),
@@ -496,8 +500,8 @@ pub mod offline_guarantee {
             previous_claim: Pubkey::default(),
             next_claim: Pubkey::default(),
             allocation_processed: false,
-        };
-        write_program_account(&ctx.accounts.claim, &claim)?;
+        });
+        write_program_account(&ctx.accounts.claim, claim.as_ref())?;
 
         if let Some(mut edge) = existing_edge {
             edge.wrapper_count = edge
@@ -511,11 +515,11 @@ pub mod offline_guarantee {
                 previous_representative.rejection_reason = ClaimRejectionReason::DuplicateStateEdge;
                 write_program_account(
                     &ctx.accounts.representative_claim,
-                    &previous_representative,
+                    previous_representative.as_ref(),
                 )?;
                 edge.representative_credential_hash = validated.credential_hash;
             }
-            write_program_account(&ctx.accounts.state_edge, &edge)?;
+            write_program_account(&ctx.accounts.state_edge, edge.as_ref())?;
         } else {
             let edge_bump_seed = [edge_bump];
             let edge_seeds: &[&[u8]] = &[
@@ -533,7 +537,7 @@ pub mod offline_guarantee {
                 StateEdgeRecord::SPACE,
                 edge_seeds,
             )?;
-            let edge = StateEdgeRecord {
+            let edge = Box::new(StateEdgeRecord {
                 session: session_key,
                 previous_state_hash: payload.previous_state_hash,
                 sequence: payload.sequence,
@@ -551,8 +555,8 @@ pub mod offline_guarantee {
                 classified: false,
                 conflicting: false,
                 allocation_finalized: false,
-            };
-            write_program_account(&ctx.accounts.state_edge, &edge)?;
+            });
+            write_program_account(&ctx.accounts.state_edge, edge.as_ref())?;
             register_fork_child(
                 &mut ctx.accounts.session,
                 &mut ctx.accounts.profile,
@@ -1544,11 +1548,11 @@ pub struct RegisterDeviceAuthorization<'info> {
 #[derive(Accounts)]
 pub struct SubmitClaim<'info> {
     #[account(seeds = [b"config"], bump = config.bump)]
-    pub config: Account<'info, ProtocolConfig>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
     #[account(mut, seeds = [b"session", session.owner.as_ref(), session.session_id.as_ref()], bump = session.bump)]
     pub session: Box<Account<'info, OfflineSession>>,
     #[account(mut, seeds = [b"user", session.owner.as_ref()], bump = profile.bump, constraint = profile.owner == session.owner @ OgpError::Unauthorized)]
-    pub profile: Account<'info, UserProfile>,
+    pub profile: Box<Account<'info, UserProfile>>,
     /// CHECK: Compared byte-for-byte with the signed credential settlement destination.
     pub merchant: UncheckedAccount<'info>,
     #[account(mut)]
@@ -1584,7 +1588,7 @@ pub struct BeginFinalization<'info> {
     #[account(mut, seeds = [b"session", session.owner.as_ref(), session.session_id.as_ref()], bump = session.bump)]
     pub session: Box<Account<'info, OfflineSession>>,
     #[account(mut, seeds = [b"vault", vault.owner.as_ref(), vault.token_mint.as_ref()], bump = vault.bump, constraint = session.collateral_vault == vault.key() @ OgpError::InvalidFinalization)]
-    pub vault: Account<'info, CollateralVault>,
+    pub vault: Box<Account<'info, CollateralVault>>,
 }
 
 #[derive(Accounts)]
@@ -1604,7 +1608,7 @@ pub struct AllocateNextClaim<'info> {
     #[account(mut, seeds = [b"session", session.owner.as_ref(), session.session_id.as_ref()], bump = session.bump)]
     pub session: Box<Account<'info, OfflineSession>>,
     #[account(mut, seeds = [b"vault", vault.owner.as_ref(), vault.token_mint.as_ref()], bump = vault.bump, constraint = session.collateral_vault == vault.key() @ OgpError::InvalidFinalization)]
-    pub vault: Account<'info, CollateralVault>,
+    pub vault: Box<Account<'info, CollateralVault>>,
     #[account(mut, seeds = [b"claim", session.key().as_ref(), claim.credential_hash.as_ref()], bump = claim.bump, constraint = claim.session == session.key() @ OgpError::InvalidFinalization)]
     pub claim: Box<Account<'info, Claim>>,
     #[account(mut, seeds = [b"edge", session.key().as_ref(), state_edge.previous_state_hash.as_ref(), &state_edge.sequence.to_le_bytes(), state_edge.new_state_hash.as_ref()], bump = state_edge.bump, constraint = state_edge.session == session.key() @ OgpError::InvalidFinalization)]
@@ -1614,22 +1618,22 @@ pub struct AllocateNextClaim<'info> {
 #[derive(Accounts)]
 pub struct SettleClaim<'info> {
     #[account(seeds = [b"config"], bump = config.bump, has_one = settlement_mint)]
-    pub config: Account<'info, ProtocolConfig>,
-    pub settlement_mint: Account<'info, Mint>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
+    pub settlement_mint: Box<Account<'info, Mint>>,
     #[account(mut, seeds = [b"session", session.owner.as_ref(), session.session_id.as_ref()], bump = session.bump)]
     pub session: Box<Account<'info, OfflineSession>>,
     #[account(mut, seeds = [b"user", session.owner.as_ref()], bump = profile.bump, constraint = profile.owner == session.owner @ OgpError::Unauthorized)]
-    pub profile: Account<'info, UserProfile>,
+    pub profile: Box<Account<'info, UserProfile>>,
     #[account(mut, seeds = [b"vault", vault.owner.as_ref(), settlement_mint.key().as_ref()], bump = vault.bump, constraint = session.collateral_vault == vault.key() @ OgpError::InvalidSettlement, constraint = vault.token_account == vault_token.key() @ OgpError::InvalidSettlement)]
-    pub vault: Account<'info, CollateralVault>,
+    pub vault: Box<Account<'info, CollateralVault>>,
     #[account(mut, seeds = [b"vault-token", vault.key().as_ref()], bump = vault.token_account_bump, token::mint = settlement_mint, token::authority = vault)]
-    pub vault_token: Account<'info, TokenAccount>,
+    pub vault_token: Box<Account<'info, TokenAccount>>,
     #[account(mut, seeds = [b"claim", session.key().as_ref(), claim.credential_hash.as_ref()], bump = claim.bump, constraint = claim.session == session.key() @ OgpError::InvalidSettlement)]
     pub claim: Box<Account<'info, Claim>>,
     #[account(mut, seeds = [b"edge", session.key().as_ref(), state_edge.previous_state_hash.as_ref(), &state_edge.sequence.to_le_bytes(), state_edge.new_state_hash.as_ref()], bump = state_edge.bump, constraint = state_edge.session == session.key() @ OgpError::InvalidSettlement)]
     pub state_edge: Box<Account<'info, StateEdgeRecord>>,
     #[account(mut, constraint = merchant_token.owner == claim.merchant @ OgpError::InvalidSettlement, constraint = merchant_token.mint == settlement_mint.key() @ OgpError::InvalidSettlement)]
-    pub merchant_token: Account<'info, TokenAccount>,
+    pub merchant_token: Box<Account<'info, TokenAccount>>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -1638,22 +1642,22 @@ pub struct CloseSession<'info> {
     #[account(mut, seeds = [b"session", session.owner.as_ref(), session.session_id.as_ref()], bump = session.bump)]
     pub session: Box<Account<'info, OfflineSession>>,
     #[account(mut, seeds = [b"user", session.owner.as_ref()], bump = profile.bump, constraint = profile.owner == session.owner @ OgpError::Unauthorized)]
-    pub profile: Account<'info, UserProfile>,
+    pub profile: Box<Account<'info, UserProfile>>,
 }
 
 #[derive(Accounts)]
 pub struct WithdrawCollateral<'info> {
     #[account(seeds = [b"config"], bump = config.bump, has_one = settlement_mint)]
-    pub config: Account<'info, ProtocolConfig>,
-    pub settlement_mint: Account<'info, Mint>,
+    pub config: Box<Account<'info, ProtocolConfig>>,
+    pub settlement_mint: Box<Account<'info, Mint>>,
     #[account(mut)]
     pub owner: Signer<'info>,
     #[account(mut, seeds = [b"vault", owner.key().as_ref(), settlement_mint.key().as_ref()], bump = vault.bump, has_one = owner, constraint = vault.token_account == vault_token.key() @ OgpError::VaultBalanceMismatch)]
-    pub vault: Account<'info, CollateralVault>,
+    pub vault: Box<Account<'info, CollateralVault>>,
     #[account(mut, seeds = [b"vault-token", vault.key().as_ref()], bump = vault.token_account_bump, token::mint = settlement_mint, token::authority = vault)]
-    pub vault_token: Account<'info, TokenAccount>,
+    pub vault_token: Box<Account<'info, TokenAccount>>,
     #[account(mut, constraint = owner_token.owner == owner.key() @ OgpError::Unauthorized, constraint = owner_token.mint == settlement_mint.key() @ OgpError::VaultBalanceMismatch)]
-    pub owner_token: Account<'info, TokenAccount>,
+    pub owner_token: Box<Account<'info, TokenAccount>>,
     pub token_program: Program<'info, Token>,
 }
 
