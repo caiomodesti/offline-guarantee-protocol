@@ -935,6 +935,7 @@ await program.methods
   .signers([insolventUser.owner])
   .rpc();
 const insolventSessionState = await program.account.offlineSession.fetch(insolventSession);
+assert(Array.from(insolventSessionState.deviceAuthorizationHash).some((byte) => byte !== 0));
 const insolventDomain: DomainContext = {
   networkId: NetworkId.Localnet,
   clusterGenesisHash: Uint8Array.from(clusterGenesisHash),
@@ -1018,6 +1019,12 @@ for (const [index, insolvencyMerchant] of insolvencyMerchants.entries()) {
     [],
     { commitment: "confirmed", preflightCommitment: "confirmed" },
   );
+  const sessionAfterInsolventClaim = await program.account.offlineSession.fetch(insolventSession);
+  assert(
+    Array.from(sessionAfterInsolventClaim.deviceAuthorizationHash).some((byte) => byte !== 0),
+    `device authorization cleared after insolvency claim ${index + 1}`,
+  );
+  console.log(`PASS insolvency branch ${index + 1}/4`);
   const merchantToken = (
     await getOrCreateAssociatedTokenAccount(connection, payer, settlementMint, insolvencyMerchant.publicKey)
   ).address;

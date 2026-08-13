@@ -110,6 +110,7 @@ Required runtime proofs:
 | High | Caller account substitution | Allocation/merchant binding | Claim could be paired with an unrelated session edge | Full merchant/amount/sequence/parent/child equality in allocation and settlement | FIXED |
 | High | Early collateral release | Claim-window guarantee | Finalization before grace deadline would reduce reserve | Strict Solana Clock boundary; validator pre-deadline failure | FIXED |
 | High | Settlement redirect/replay | Merchant payout | Relayer could try another token destination or repeat transfer | SPL owner/mint constraints plus claim/edge settled state | FIXED |
+| High | SBF frame overwrite | Runtime memory safety | First SBF run emitted frame-overwrite diagnostics and decoded `254` instead of `25` | Heap-box large account/state values; CI now fails on any stack/undefined-behavior diagnostic | FIXED, FINAL SBF RECHECK REQUIRED |
 | Medium | Descendant under-classification | Conflict accounting | Direct fork proof alone does not classify descendants | Frozen fork records plus topological parent conflict propagation | FIXED |
 | Medium | Zero-allocation liveness | Session close | Zero allocation could never call settlement | Zero allocation is finalized as already settled | FIXED |
 | Medium | Incomplete traversal terminal | Completeness | Count could finish with a non-sentinel next pointer after corruption | Completion also requires `next_allocation_claim=default` | FIXED |
@@ -141,4 +142,3 @@ Required runtime proofs:
 ## Decision
 
 `PENDING — DO NOT START SPRINT 7` until every remote runtime gate above is green on the final audited commit.
-

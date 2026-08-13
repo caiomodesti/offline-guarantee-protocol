@@ -82,13 +82,18 @@ jobs:
 
       - name: Build real SBF artifact
         run: |
-          anchor build
+          set -o pipefail
+          anchor build 2>&1 | tee target/sbf-build.log
+          if grep -E "Stack offset|overwrites values in the frame|undefined behavior during execution" target/sbf-build.log; then
+            echo "Unsafe SBF stack diagnostic detected"
+            exit 1
+          fi
           test -s target/deploy/offline_guarantee.so
           stat --printf='artifact=%n bytes=%s\n' target/deploy/offline_guarantee.so
           sha256sum target/deploy/offline_guarantee.so | tee target/sbf-sha256.txt
 
       - name: Validator-backed collection, CPI, and invariant suite
-        run: anchor test --validator legacy
+        run: anchor test --skip-build --validator legacy
 
       - name: Warp persisted ledger past claim deadline and prove economic resolution
         run: |
@@ -142,5 +147,6 @@ jobs:
             target/runtime-proof.json
             target/runtime-environment.txt
             target/sbf-sha256.txt
+            target/sbf-build.log
             target/sprint-6-warp-validator.log
             .anchor/program-logs/
