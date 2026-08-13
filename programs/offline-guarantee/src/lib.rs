@@ -756,9 +756,23 @@ pub mod offline_guarantee {
 
         let is_representative = ctx.accounts.state_edge.representative_credential_hash
             == ctx.accounts.claim.credential_hash;
+        require!(
+            ctx.accounts.state_edge.merchant == ctx.accounts.claim.merchant
+                && ctx.accounts.state_edge.amount == ctx.accounts.claim.amount
+                && ctx.accounts.state_edge.sequence == ctx.accounts.claim.sequence
+                && ctx.accounts.state_edge.previous_state_hash
+                    == ctx.accounts.claim.previous_state_hash
+                && ctx.accounts.state_edge.new_state_hash == ctx.accounts.claim.new_state_hash,
+            OgpError::InvalidFinalization
+        );
         if is_representative {
             require!(
                 ctx.accounts.state_edge.classified && !ctx.accounts.state_edge.allocation_finalized,
+                OgpError::InvalidFinalization
+            );
+            require!(
+                ctx.accounts.claim.status == ClaimStatus::Submitted
+                    && ctx.accounts.claim.rejection_reason == ClaimRejectionReason::None,
                 OgpError::InvalidFinalization
             );
             let coverage = coverage_amount(
@@ -811,6 +825,9 @@ pub mod offline_guarantee {
                 b"OGP:RESOLUTION:EDGE:V1\0",
                 &ctx.accounts.session.resolution_hash,
                 &ctx.accounts.claim.credential_hash,
+                &ctx.accounts.state_edge.previous_state_hash,
+                &ctx.accounts.state_edge.sequence.to_le_bytes(),
+                &ctx.accounts.state_edge.new_state_hash,
                 ctx.accounts.claim.merchant.as_ref(),
                 &ctx.accounts.claim.amount.to_le_bytes(),
                 &allocation.to_le_bytes(),
@@ -871,6 +888,15 @@ pub mod offline_guarantee {
                 && ctx.accounts.state_edge.representative_credential_hash
                     == ctx.accounts.claim.credential_hash
                 && ctx.accounts.state_edge.allocated_amount == ctx.accounts.claim.allocated_amount,
+            OgpError::InvalidSettlement
+        );
+        require!(
+            ctx.accounts.state_edge.merchant == ctx.accounts.claim.merchant
+                && ctx.accounts.state_edge.amount == ctx.accounts.claim.amount
+                && ctx.accounts.state_edge.sequence == ctx.accounts.claim.sequence
+                && ctx.accounts.state_edge.previous_state_hash
+                    == ctx.accounts.claim.previous_state_hash
+                && ctx.accounts.state_edge.new_state_hash == ctx.accounts.claim.new_state_hash,
             OgpError::InvalidSettlement
         );
         let amount = ctx.accounts.claim.allocated_amount;
@@ -1261,7 +1287,8 @@ fn complete_allocation(
     require!(
         session.classification_complete
             && session.scanned_claim_count == session.submitted_claim_count
-            && session.allocated_edge_count == session.frozen_edge_count,
+            && session.allocated_edge_count == session.frozen_edge_count
+            && session.next_allocation_claim == Pubkey::default(),
         OgpError::InvalidFinalization
     );
     let coverage = coverage_amount(session.frozen_exposure, session.collateral_coverage_cap);

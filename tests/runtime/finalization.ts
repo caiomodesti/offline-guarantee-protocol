@@ -11,6 +11,10 @@ import {
 import { Keypair, PublicKey } from "@solana/web3.js";
 
 type ClaimFixture = { claim: string; edge: string; credentialHash: string };
+type InsolvencyClaimFixture = ClaimFixture & {
+  merchant: string;
+  merchantToken: string;
+};
 type Fixture = {
   slot: number;
   session: string;
@@ -31,6 +35,14 @@ type Fixture = {
   forkClaim: string;
   rejectedClaim: string;
   claims: ClaimFixture[];
+  insolvency: {
+    session: string;
+    profile: string;
+    vault: string;
+    vaultToken: string;
+    forkRecord: string;
+    claims: InsolvencyClaimFixture[];
+  };
 };
 
 type RuntimeReport = {
@@ -303,6 +315,93 @@ assert.equal(asNumber(emptyVault.depositedAmount), 0);
 assert.equal(asNumber(emptyVault.reservedAmount), 0);
 assert.equal((await getAccount(connection, vaultToken)).amount, 0n);
 pass("formal withdrawal safety", "246 fails; exactly deposited_amount-reserved_amount=245 succeeds after all claim-window and unpaid-allocation exposure is gone");
+
+const insolventSession = key(fixture.insolvency.session);
+const insolventProfile = key(fixture.insolvency.profile);
+const insolventVault = key(fixture.insolvency.vault);
+const insolventVaultToken = key(fixture.insolvency.vaultToken);
+await program.methods
+  .beginFinalization()
+  .accounts({ session: insolventSession, vault: insolventVault })
+  .rpc();
+for (const entry of fixture.insolvency.claims) {
+  await program.methods
+    .classifyEdge()
+    .accounts({
+      session: insolventSession,
+      stateEdge: key(entry.edge),
+      forkRecord: key(fixture.insolvency.forkRecord),
+      parentEdge: insolventSession,
+    })
+    .rpc();
+}
+for (const entry of fixture.insolvency.claims) {
+  await program.methods
+    .allocateNextClaim()
+    .accounts({
+      session: insolventSession,
+      vault: insolventVault,
+      claim: key(entry.claim),
+      stateEdge: key(entry.edge),
+    })
+    .rpc();
+}
+const insolventAllocated = await program.account.offlineSession.fetch(insolventSession);
+const insolventReserved = await program.account.collateralVault.fetch(insolventVault);
+assert("insolvent" in insolventAllocated.status);
+assert("insolvent" in insolventAllocated.coverageStatus);
+assert.equal(asNumber(insolventAllocated.frozenExposure), 400);
+assert.equal(asNumber(insolventAllocated.allocatedTotal), 300);
+assert.equal(asNumber(insolventAllocated.conflictingClaimCount), 4);
+assert.equal(asNumber(insolventReserved.reservedAmount), 300);
+for (const entry of fixture.insolvency.claims) {
+  const claim = decodeClaim(await fetchRaw(key(entry.claim)));
+  assert.equal(claim.status, "conflicting");
+  assert.equal(claim.allocatedAmount, 75n);
+}
+await expectFailure("insolvent close before settlement", () =>
+  program.methods
+    .closeSession()
+    .accounts({ session: insolventSession, profile: insolventProfile })
+    .rpc(),
+);
+pass("runtime pro-rata cap", "400 aggregate exposure deterministically allocates 75 to each of four hash-ordered branches; total liability is exactly capped at 300");
+
+const insolvencyBalances = await Promise.all(
+  fixture.insolvency.claims.map(async (entry) =>
+    (await getAccount(connection, key(entry.merchantToken))).amount
+  ),
+);
+for (const [index, entry] of fixture.insolvency.claims.entries()) {
+  await program.methods
+    .settleClaim()
+    .accounts({
+      config,
+      settlementMint,
+      session: insolventSession,
+      profile: insolventProfile,
+      vault: insolventVault,
+      vaultToken: insolventVaultToken,
+      claim: key(entry.claim),
+      stateEdge: key(entry.edge),
+      merchantToken: key(entry.merchantToken),
+      tokenProgram: TOKEN_PROGRAM_ID,
+    })
+    .rpc();
+  assert.equal(
+    (await getAccount(connection, key(entry.merchantToken))).amount
+      - insolvencyBalances[index]!,
+    75n,
+  );
+}
+const insolventClosed = await program.account.offlineSession.fetch(insolventSession);
+const insolventEmptyVault = await program.account.collateralVault.fetch(insolventVault);
+assert("closed" in insolventClosed.status);
+assert.equal(asNumber(insolventClosed.settledAmount), 300);
+assert.equal(asNumber(insolventEmptyVault.depositedAmount), 0);
+assert.equal(asNumber(insolventEmptyVault.reservedAmount), 0);
+assert.equal((await getAccount(connection, insolventVaultToken)).amount, 0n);
+pass("insolvent SPL settlement", "four PDA-signed transfers pay the stored 75-unit allocations, never exceed the 300 cap, and atomically close with zero reserve");
 
 await writeFile("target/runtime-proof.json", `${JSON.stringify(report, null, 2)}\n`);
 console.log(`SPRINT 6 FINALIZATION PASS (${report.tests.length} cumulative checks)`);

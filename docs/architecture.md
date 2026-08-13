@@ -112,7 +112,7 @@ This is a design contract, not implemented layout.
 | CollateralVault state | `["vault", owner, mint]` | program | Accounting and token-account address |
 | SPL token vault | associated deterministic PDA scheme | vault PDA | Custody only |
 | OfflineSession | `["session", owner, session_id]` | program | Fixed-size core state |
-| Claim | `["claim", session, credential_hash]` | program | Exact replay/idempotency key |
+| Claim | `["claim", session, credential_hash]` | program | Exact replay/idempotency key plus verified hash-ordered pagination links |
 | StateEdgeRecord | `["edge", session, parent_hash, sequence, child_hash]` | program | One economic inclusion/allocation per valid state edge; tracks smallest representative credential hash |
 | ForkRecord | `["fork", session, parent_hash, sequence]` | program | One compact record per discovered divergence for MVP |
 

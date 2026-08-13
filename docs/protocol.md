@@ -89,13 +89,31 @@ status: SessionStatus
 authenticated_fork: bool
 coverage_status: CoverageStatus
 genesis_state_hash: [u8; 32]
+device_authorization_hash: [u8; 32]
+identity_attestation_hash: [u8; 32]
 settled_amount: u64
 aggregate_offline_exposure: u64  // final reconciliation metric
-conflicting_amount: u64
+unique_edge_count: u64
+conflicting_claim_count: u64
 resolution_hash: [u8; 32]
+frozen_edge_count: u64
+frozen_exposure: u64
+submitted_claim_count: u64
+classified_edge_count: u64
+classified_exposure: u64
+base_allocation_total: u64
+allocated_edge_count: u64
+allocated_total: u64
+scanned_claim_count: u64
+settled_edge_count: u64
+claim_head: Pubkey
+claim_tail: Pubkey
+next_allocation_claim: Pubkey
+classification_complete: bool
+allocation_complete: bool
 ```
 
-`conflicting_amount` is the sum of unique eligible credential amounts in the union of all subtrees beginning at a child of any verified fork point. Common-prefix credentials are excluded, and an edge is counted once even if it descends from multiple recorded fork conditions.
+The host reconstructor still reports `conflicting_amount`: the sum of unique eligible amounts in all subtrees beginning at a child of any verified fork point. On-chain finalization stores the corresponding representative count and per-edge conflict flags; aggregate amount remains independently reproducible from those immutable edge accounts.
 
 MVP constraints:
 
@@ -228,11 +246,16 @@ submitted_slot: u64
 status: ClaimStatus
 allocated_amount: u64
 settled_amount: u64
+previous_claim: Pubkey
+next_claim: Pubkey
+allocation_processed: bool
 ```
 
 Statuses: `SUBMITTED`, `VALID`, `CONFLICTING`, `SETTLED`, `REJECTED`. Collection creates `SUBMITTED`, never an immediate payout. Finalization changes eligible claims to `VALID` or `CONFLICTING`, invalid claims to `REJECTED`, and paid claims to `SETTLED`. Exact repeated submission maps to the existing claim and returns `DUPLICATE_CREDENTIAL`; it does not create a second account or allocation.
 
 Economic idempotency is additionally keyed by the state edge `(session_id, previous_state_hash, sequence, new_state_hash)`. Two valid credentials can have different `credential_hash` values yet encode the same economic edge when only signed metadata excluded from `PaymentState`, such as `created_at`, differs. Such wrappers are classified `DUPLICATE_STATE_EDGE`, contribute one edge and one amount, and can never receive two allocations. The deterministic representative is the unsigned lexicographically smallest timely valid `credential_hash` for that edge.
+
+For verified pagination, all timely valid wrappers are inserted into a program-validated doubly linked list in unsigned ascending `credential_hash` order. Predecessor/successor hints are untrusted witnesses: invalid adjacency, boundary, or ordering fails atomically. Changing an edge representative atomically rejects the former representative and promotes the smaller wrapper without changing economic counters.
 
 ## Genesis and transitions
 
@@ -381,7 +404,7 @@ If H2B has a bad signature, wrong merchant, invalid arithmetic, or cannot reach 
 
 ### Freeze point
 
-Claims MAY be submitted during the claim window but MUST NOT receive final allocation or settlement before `claim_submission_deadline`. At the deadline, the eligible set is frozen. This prevents arrival order or early settlement from changing later merchants' allocations. A prepared demo MAY use a session whose deadline has already passed; it MUST NOT bypass this rule.
+Claims MAY be submitted during the claim window but MUST NOT receive final allocation or settlement before `claim_submission_deadline`. The exact boundary is deterministic: submission is allowed while `Solana Clock <= claim_submission_deadline`; finalization is allowed only when `Solana Clock > claim_submission_deadline`. The eligible set is then frozen. This prevents arrival order or early settlement from changing later merchants' allocations. A prepared demo MAY use a session whose deadline has already passed; it MUST NOT bypass this rule.
 
 ### Aggregate and cap
 

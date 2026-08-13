@@ -917,6 +917,124 @@ await expectFailure("finalization before claim deadline", () =>
 );
 pass("claim-window reserve gate", "finalization cannot freeze claims or release collateral before the authoritative six-hour deadline");
 
+const insolventUser = await prepareUser(100);
+const insolventDeviceSecret = generateSecretKey();
+const insolventDevicePublic = new PublicKey(derivePublicKey(insolventDeviceSecret));
+const insolventSessionResult = await createSession(
+  insolventUser,
+  101,
+  300,
+  100,
+  (await chainNow()) + 3600,
+  insolventDevicePublic,
+);
+const insolventSession = insolventSessionResult.session;
+await program.methods
+  .registerDeviceAuthorization(nonzero(201))
+  .accounts({ config, owner: insolventUser.owner.publicKey, session: insolventSession })
+  .signers([insolventUser.owner])
+  .rpc();
+const insolventSessionState = await program.account.offlineSession.fetch(insolventSession);
+const insolventDomain: DomainContext = {
+  networkId: NetworkId.Localnet,
+  clusterGenesisHash: Uint8Array.from(clusterGenesisHash),
+  programId: program.programId.toBytes(),
+  sessionId: insolventSessionResult.sessionId,
+};
+const insolventGenesis = genesisStateHash(createGenesisState(insolventDomain, {
+  owner: insolventUser.owner.publicKey.toBytes(),
+  devicePublicKey: insolventDevicePublic.toBytes(),
+  branchSpendingLimit: 100n,
+  maxBranchDepth: 32,
+  initialRemaining: 100n,
+  issuedAt: BigInt(insolventSessionState.issuedAt.toString()),
+  expiresAt: BigInt(insolventSessionState.expiresAt.toString()),
+}));
+const insolvencyMerchants = Array.from({ length: 4 }, () => Keypair.generate());
+const insolvencyOrder: { hash: Uint8Array; claim: PublicKey; edge: PublicKey; merchant: PublicKey; merchantToken: PublicKey }[] = [];
+for (const [index, insolvencyMerchant] of insolvencyMerchants.entries()) {
+  const state: PaymentState = {
+    domain: createDomain(insolventDomain, ObjectType.PaymentState),
+    previousStateHash: insolventGenesis,
+    sequence: 1,
+    merchant: insolvencyMerchant.publicKey.toBytes(),
+    amount: 100n,
+    merchantChallenge: Uint8Array.from(nonzero(210 + index)),
+    previousRemaining: 100n,
+    newRemaining: 0n,
+  };
+  const stateHash = paymentStateHash(state);
+  const payload = encodePaymentCredentialPayload({
+    domain: createDomain(insolventDomain, ObjectType.PaymentCredential),
+    sessionId: insolventSessionResult.sessionId,
+    sequence: 1,
+    payer: insolventUser.owner.publicKey.toBytes(),
+    payerDeviceKey: insolventDevicePublic.toBytes(),
+    merchant: insolvencyMerchant.publicKey.toBytes(),
+    merchantDeviceKey: Uint8Array.from(nonzero(220 + index)),
+    amount: 100n,
+    previousStateHash: insolventGenesis,
+    newStateHash: stateHash,
+    previousRemaining: 100n,
+    newRemaining: 0n,
+    merchantChallenge: state.merchantChallenge,
+    createdAt: BigInt(insolventSessionState.issuedAt.toString()),
+    sessionExpiresAt: BigInt(insolventSessionState.expiresAt.toString()),
+  });
+  const signature = signEd25519(payload, insolventDeviceSecret);
+  const credentialHash = hashSha256(Uint8Array.from([...payload, ...signature]));
+  const claim = claimPda(insolventSession, credentialHash);
+  const edge = edgePda(insolventSession, insolventGenesis, 1, stateHash);
+  const insertionIndex = insolvencyOrder.findIndex(
+    (entry) => Buffer.compare(Buffer.from(credentialHash), Buffer.from(entry.hash)) < 0,
+  );
+  const predecessorClaim = insertionIndex === 0
+    ? insolventSession
+    : (insertionIndex < 0 ? insolvencyOrder.at(-1)?.claim : insolvencyOrder[insertionIndex - 1]?.claim) ?? insolventSession;
+  const successorClaim = insertionIndex < 0
+    ? insolventSession
+    : insolvencyOrder[insertionIndex]?.claim ?? insolventSession;
+  const claimInstruction = await program.methods
+    .submitClaim(Buffer.from(payload), Buffer.from(signature))
+    .accounts({
+      config,
+      session: insolventSession,
+      profile: insolventUser.profile,
+      merchant: insolvencyMerchant.publicKey,
+      relayer: payer.publicKey,
+      claim,
+      stateEdge: edge,
+      representativeClaim: claim,
+      predecessorClaim,
+      successorClaim,
+      forkRecord: forkPda(insolventSession, insolventGenesis, 1),
+      parentEdge: insolventSession,
+      instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+      systemProgram: SystemProgram.programId,
+    })
+    .instruction();
+  await provider.sendAndConfirm(
+    new Transaction().add(ed25519ReferenceInstruction(), claimInstruction),
+    [],
+    { commitment: "confirmed", preflightCommitment: "confirmed" },
+  );
+  const merchantToken = (
+    await getOrCreateAssociatedTokenAccount(connection, payer, settlementMint, insolvencyMerchant.publicKey)
+  ).address;
+  insolvencyOrder.splice(insertionIndex < 0 ? insolvencyOrder.length : insertionIndex, 0, {
+    hash: credentialHash,
+    claim,
+    edge,
+    merchant: insolvencyMerchant.publicKey,
+    merchantToken,
+  });
+}
+const insolventCollected = await program.account.offlineSession.fetch(insolventSession);
+assert.equal(asNumber(insolventCollected.aggregateOfflineExposure), 400);
+assert.equal(asNumber(insolventCollected.uniqueEdgeCount), 4);
+assert.equal(insolventCollected.authenticatedFork, true);
+pass("runtime aggregate exposure above cap", "four verified 100-unit children produce 400 exposure against the immutable 300 coverage cap");
+
 const attackerToken = await createAssociatedTokenAccount(
   connection,
   payer,
@@ -975,6 +1093,20 @@ await writeFile(
     forkClaim: claimPda(claimsSession, forkCredential.credentialHash).toBase58(),
     rejectedClaim: firstClaim.toBase58(),
     claims: claimEntries,
+    insolvency: {
+      session: insolventSession.toBase58(),
+      profile: insolventUser.profile.toBase58(),
+      vault: insolventUser.vault.toBase58(),
+      vaultToken: insolventUser.vaultToken.toBase58(),
+      forkRecord: forkPda(insolventSession, insolventGenesis, 1).toBase58(),
+      claims: insolvencyOrder.map((entry) => ({
+        claim: entry.claim.toBase58(),
+        edge: entry.edge.toBase58(),
+        merchant: entry.merchant.toBase58(),
+        merchantToken: entry.merchantToken.toBase58(),
+        credentialHash: Buffer.from(entry.hash).toString("hex"),
+      })),
+    },
   }, null, 2)}\n`,
 );
 await writeFile("target/runtime-proof.json", `${JSON.stringify(report, null, 2)}\n`);
