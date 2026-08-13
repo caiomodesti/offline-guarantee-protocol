@@ -19,6 +19,7 @@ describe("protocol account decoders", () => {
     view.setUint8(188, 4);
     view.setUint8(189, 1);
     view.setUint8(206, 254);
+    view.setUint8(271, 1);
 
     expect(decodeClaim(data)).toMatchObject({
       amount: 25n,
@@ -27,6 +28,7 @@ describe("protocol account decoders", () => {
       status: "rejected",
       rejectionReason: "duplicateStateEdge",
       bump: 254,
+      allocationProcessed: true,
     });
   });
 
@@ -38,12 +40,16 @@ describe("protocol account decoders", () => {
     view.setBigUint64(140, 40n, true);
     view.setUint32(196, 2, true);
     view.setUint8(224, 253);
+    view.setUint8(225, 1);
+    view.setUint8(226, 1);
 
     expect(decodeStateEdgeRecord(data)).toMatchObject({
       sequence: 3,
       amount: 40n,
       wrapperCount: 2,
       bump: 253,
+      classified: true,
+      conflicting: true,
     });
   });
 

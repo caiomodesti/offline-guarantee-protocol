@@ -1,5 +1,5 @@
-export const CLAIM_ACCOUNT_SIZE = 207;
-export const STATE_EDGE_RECORD_ACCOUNT_SIZE = 225;
+export const CLAIM_ACCOUNT_SIZE = 272;
+export const STATE_EDGE_RECORD_ACCOUNT_SIZE = 228;
 
 export const CLAIM_DISCRIMINATOR = Uint8Array.of(155, 70, 22, 176, 123, 215, 246, 102);
 export const STATE_EDGE_RECORD_DISCRIMINATOR = Uint8Array.of(204, 197, 54, 127, 253, 121, 58, 245);
@@ -21,6 +21,9 @@ export interface DecodedClaim {
   readonly allocatedAmount: bigint;
   readonly settledAmount: bigint;
   readonly bump: number;
+  readonly previousClaim: Uint8Array;
+  readonly nextClaim: Uint8Array;
+  readonly allocationProcessed: boolean;
 }
 
 export interface DecodedStateEdgeRecord {
@@ -38,6 +41,9 @@ export interface DecodedStateEdgeRecord {
   readonly allocatedAmount: bigint;
   readonly settledAmount: bigint;
   readonly bump: number;
+  readonly classified: boolean;
+  readonly conflicting: boolean;
+  readonly allocationFinalized: boolean;
 }
 
 function bytes(value: Uint8Array, start: number, length: number): Uint8Array {
@@ -86,6 +92,9 @@ export function decodeClaim(value: Uint8Array): DecodedClaim {
     allocatedAmount: data.getBigUint64(190, true),
     settledAmount: data.getBigUint64(198, true),
     bump: data.getUint8(206),
+    previousClaim: bytes(value, 207, 32),
+    nextClaim: bytes(value, 239, 32),
+    allocationProcessed: data.getUint8(271) !== 0,
   };
 }
 
@@ -107,5 +116,8 @@ export function decodeStateEdgeRecord(value: Uint8Array): DecodedStateEdgeRecord
     allocatedAmount: data.getBigUint64(208, true),
     settledAmount: data.getBigUint64(216, true),
     bump: data.getUint8(224),
+    classified: data.getUint8(225) !== 0,
+    conflicting: data.getUint8(226) !== 0,
+    allocationFinalized: data.getUint8(227) !== 0,
   };
 }

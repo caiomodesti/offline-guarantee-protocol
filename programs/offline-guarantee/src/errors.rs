@@ -58,4 +58,14 @@ pub enum OgpError {
     DuplicateCredential,
     #[msg("claim or state-edge PDA is invalid or occupied by another account")]
     InvalidClaimAccount,
+    #[msg("fork record PDA or stored fork evidence is invalid")]
+    InvalidForkRecord,
+    #[msg("claim ordering witnesses do not match the authoritative linked list")]
+    InvalidClaimOrder,
+    #[msg("session finalization is incomplete or inconsistent")]
+    InvalidFinalization,
+    #[msg("claim or economic edge has already been processed")]
+    AlreadyProcessed,
+    #[msg("settlement destination or allocation is invalid")]
+    InvalidSettlement,
 }

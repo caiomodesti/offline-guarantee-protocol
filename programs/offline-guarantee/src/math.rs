@@ -74,6 +74,27 @@ pub fn checked_reservation(
     Ok(new_reserved)
 }
 
+pub fn coverage_amount(total_exposure: u64, collateral_cap: u64) -> u64 {
+    total_exposure.min(collateral_cap)
+}
+
+pub fn checked_base_allocation(
+    amount: u64,
+    total_exposure: u64,
+    collateral_cap: u64,
+) -> Result<u64> {
+    require!(
+        total_exposure > 0 && amount <= total_exposure,
+        OgpError::InvalidFinalization
+    );
+    let coverage = coverage_amount(total_exposure, collateral_cap);
+    let product = u128::from(amount)
+        .checked_mul(u128::from(coverage))
+        .ok_or(OgpError::ArithmeticOverflow)?;
+    u64::try_from(product / u128::from(total_exposure))
+        .map_err(|_| error!(OgpError::ArithmeticOverflow))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,5 +145,34 @@ mod tests {
         assert_eq!(checked_reservation(500, 100, 500, 400).unwrap(), 500);
         assert!(checked_reservation(499, 100, 500, 400).is_err());
         assert!(checked_reservation(500, 100, 499, 400).is_err());
+    }
+
+    #[test]
+    fn official_pro_rata_example_is_exact_and_deterministic() {
+        let amounts = [30_000, 20_000, 15_000];
+        let bases: Vec<u64> = amounts
+            .into_iter()
+            .map(|amount| checked_base_allocation(amount, 65_000, 50_000).unwrap())
+            .collect();
+        assert_eq!(bases, [23_076, 15_384, 11_538]);
+        let remainder = 50_000 - bases.iter().sum::<u64>();
+        assert_eq!(remainder, 2);
+        let allocations: Vec<u64> = bases
+            .into_iter()
+            .enumerate()
+            .map(|(index, base)| base + u64::from(index < remainder as usize))
+            .collect();
+        assert_eq!(allocations, [23_077, 15_385, 11_538]);
+        assert_eq!(allocations.iter().sum::<u64>(), 50_000);
+    }
+
+    #[test]
+    fn base_allocation_handles_u64_products_without_overflow() {
+        assert_eq!(
+            checked_base_allocation(u64::MAX, u64::MAX, u64::MAX).unwrap(),
+            u64::MAX
+        );
+        assert!(checked_base_allocation(1, 0, 1).is_err());
+        assert!(checked_base_allocation(2, 1, 1).is_err());
     }
 }

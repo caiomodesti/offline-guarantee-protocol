@@ -76,7 +76,7 @@ pub enum SessionStatus {
 pub enum CoverageStatus {
     Uncalculated,
     FullyCovered,
-    ProRataRequired,
+    Insolvent,
 }
 
 #[account]
@@ -104,10 +104,25 @@ pub struct OfflineSession {
     pub conflicting_claim_count: u64,
     pub resolution_hash: [u8; 32],
     pub bump: u8,
+    pub frozen_edge_count: u64,
+    pub frozen_exposure: u64,
+    pub submitted_claim_count: u64,
+    pub classified_edge_count: u64,
+    pub classified_exposure: u64,
+    pub base_allocation_total: u64,
+    pub allocated_edge_count: u64,
+    pub allocated_total: u64,
+    pub scanned_claim_count: u64,
+    pub settled_edge_count: u64,
+    pub claim_head: Pubkey,
+    pub claim_tail: Pubkey,
+    pub next_allocation_claim: Pubkey,
+    pub classification_complete: bool,
+    pub allocation_complete: bool,
 }
 
 impl OfflineSession {
-    pub const SPACE: usize = 352;
+    pub const SPACE: usize = 530;
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -140,10 +155,13 @@ pub struct Claim {
     pub allocated_amount: u64,
     pub settled_amount: u64,
     pub bump: u8,
+    pub previous_claim: Pubkey,
+    pub next_claim: Pubkey,
+    pub allocation_processed: bool,
 }
 
 impl Claim {
-    pub const SPACE: usize = 8 + (32 * 5) + 8 + 4 + 8 + 1 + 1 + 8 + 8 + 1;
+    pub const SPACE: usize = 272;
 }
 
 #[account]
@@ -162,8 +180,26 @@ pub struct StateEdgeRecord {
     pub allocated_amount: u64,
     pub settled_amount: u64,
     pub bump: u8,
+    pub classified: bool,
+    pub conflicting: bool,
+    pub allocation_finalized: bool,
 }
 
 impl StateEdgeRecord {
-    pub const SPACE: usize = 8 + (32 * 5) + 4 + (8 * 6) + 4 + 1;
+    pub const SPACE: usize = 228;
+}
+
+#[account]
+pub struct ForkRecord {
+    pub session: Pubkey,
+    pub parent_state_hash: [u8; 32],
+    pub sequence: u32,
+    pub first_child_hash: [u8; 32],
+    pub second_child_hash: [u8; 32],
+    pub branch_count: u32,
+    pub bump: u8,
+}
+
+impl ForkRecord {
+    pub const SPACE: usize = 8 + 32 + 32 + 4 + 32 + 32 + 4 + 1;
 }

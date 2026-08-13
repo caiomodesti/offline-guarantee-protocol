@@ -162,6 +162,19 @@ function edgePda(
   )[0];
 }
 
+function forkPda(
+  session: PublicKey,
+  previousStateHash: Uint8Array,
+  sequence: number,
+): PublicKey {
+  const sequenceBytes = Buffer.alloc(4);
+  sequenceBytes.writeUInt32LE(sequence);
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("fork"), session.toBuffer(), Buffer.from(previousStateHash), sequenceBytes],
+    program.programId,
+  )[0];
+}
+
 async function fetchProgramAccount(address: PublicKey): Promise<Uint8Array> {
   const account = await connection.getAccountInfo(address, "confirmed");
   assert(account !== null, `missing program account ${address.toBase58()}`);
@@ -692,11 +705,14 @@ function ed25519ReferenceInstruction(currentInstructionIndex = 1): TransactionIn
   return new TransactionInstruction({ programId: Ed25519Program.programId, keys: [], data });
 }
 
+const submittedClaimOrder: { hash: Uint8Array; pda: PublicKey }[] = [];
+
 async function submitRuntimeClaim(
   credential: ReturnType<typeof buildCredential>,
   merchantKey: PublicKey,
   parentEdge: PublicKey,
   verifierInstruction = ed25519ReferenceInstruction(),
+  representativeCredentialHash = credential.credentialHash,
 ): Promise<string> {
   const claim = claimPda(claimsSession, credential.credentialHash);
   const edge = edgePda(
@@ -705,6 +721,20 @@ async function submitRuntimeClaim(
     credential.sequence,
     credential.stateHash,
   );
+  const forkRecord = forkPda(
+    claimsSession,
+    credential.previousStateHash,
+    credential.sequence,
+  );
+  const insertionIndex = submittedClaimOrder.findIndex(
+    (entry) => Buffer.compare(Buffer.from(credential.credentialHash), Buffer.from(entry.hash)) < 0,
+  );
+  const predecessorClaim = insertionIndex === 0
+    ? claimsSession
+    : (insertionIndex < 0 ? submittedClaimOrder.at(-1)?.pda : submittedClaimOrder[insertionIndex - 1]?.pda) ?? claimsSession;
+  const successorClaim = insertionIndex < 0
+    ? claimsSession
+    : submittedClaimOrder[insertionIndex]?.pda ?? claimsSession;
   const claimInstruction = await program.methods
     .submitClaim(
       Buffer.from(credential.payload),
@@ -713,20 +743,30 @@ async function submitRuntimeClaim(
     .accounts({
       config,
       session: claimsSession,
+      profile: claimsUser.profile,
       merchant: merchantKey,
       relayer: payer.publicKey,
       claim,
       stateEdge: edge,
+      representativeClaim: claimPda(claimsSession, representativeCredentialHash),
+      predecessorClaim,
+      successorClaim,
+      forkRecord,
       parentEdge,
       instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
       systemProgram: SystemProgram.programId,
     })
     .instruction();
-  return provider.sendAndConfirm(
+  const signature = await provider.sendAndConfirm(
     new Transaction().add(verifierInstruction, claimInstruction),
     [],
     { commitment: "confirmed", preflightCommitment: "confirmed" },
   );
+  submittedClaimOrder.splice(insertionIndex < 0 ? submittedClaimOrder.length : insertionIndex, 0, {
+    hash: credential.credentialHash,
+    pda: claim,
+  });
+  return signature;
 }
 
 const firstCredential = buildCredential(merchant.publicKey, 90);
@@ -792,29 +832,52 @@ await expectFailure("credential metadata outside session", () =>
 );
 pass("credential expiry metadata", "signed created_at outside the authoritative session interval is rejected without treating it as arrival order proof");
 
-const wrapperCredential = buildCredential(
-  merchant.publicKey,
-  91,
-  1n,
-  25n,
-  genesisHash,
-  1,
-  100n,
-  90,
-);
+let wrapperCredential = buildCredential(merchant.publicKey, 91, 1n, 25n, genesisHash, 1, 100n, 90);
+for (let offset = 2n; Buffer.compare(Buffer.from(wrapperCredential.credentialHash), Buffer.from(firstCredential.credentialHash)) >= 0; offset += 1n) {
+  wrapperCredential = buildCredential(merchant.publicKey, 91, offset, 25n, genesisHash, 1, 100n, 90);
+}
 assert.deepEqual(Array.from(wrapperCredential.stateHash), Array.from(firstCredential.stateHash));
 assert.notDeepEqual(Array.from(wrapperCredential.credentialHash), Array.from(firstCredential.credentialHash));
-await submitRuntimeClaim(wrapperCredential, merchant.publicKey, claimsSession);
+await submitRuntimeClaim(
+  wrapperCredential,
+  merchant.publicKey,
+  claimsSession,
+  ed25519ReferenceInstruction(),
+  firstCredential.credentialHash,
+);
 const wrapperClaim = claimPda(claimsSession, wrapperCredential.credentialHash);
 const wrapperClaimState = decodeClaim(await fetchProgramAccount(wrapperClaim));
+const supersededFirstClaimState = decodeClaim(await fetchProgramAccount(firstClaim));
 const edgeAfterWrapper = decodeStateEdgeRecord(await fetchProgramAccount(firstEdge));
 const sessionAfterWrapper = await program.account.offlineSession.fetch(claimsSession);
-assert.equal(wrapperClaimState.status, "rejected");
-assert.equal(wrapperClaimState.rejectionReason, "duplicateStateEdge");
+assert.equal(wrapperClaimState.status, "submitted");
+assert.equal(wrapperClaimState.rejectionReason, "none");
+assert.equal(supersededFirstClaimState.status, "rejected");
+assert.equal(supersededFirstClaimState.rejectionReason, "duplicateStateEdge");
+assert.deepEqual(Array.from(edgeAfterWrapper.representativeCredentialHash), Array.from(wrapperCredential.credentialHash));
 assert.equal(edgeAfterWrapper.wrapperCount, 2);
 assert.equal(asNumber(sessionAfterWrapper.aggregateOfflineExposure), 25);
 assert.equal(asNumber(sessionAfterWrapper.uniqueEdgeCount), 1);
-pass("economic state-edge idempotency", "distinct signed wrapper is indexed and rejected economically; authoritative counters remain one edge/25 units");
+pass("economic representative replacement", "a lexicographically smaller wrapper atomically becomes the sole submitted representative; the former representative is rejected without changing exposure");
+
+const forkCredential = buildCredential(otherMerchant.publicKey, 96, 2n, 30n);
+await submitRuntimeClaim(forkCredential, otherMerchant.publicKey, claimsSession);
+const forkRecord = forkPda(claimsSession, genesisHash, 1);
+const forkData = await fetchProgramAccount(forkRecord);
+const sessionAfterFork = await program.account.offlineSession.fetch(claimsSession);
+const profileAfterFork = await program.account.userProfile.fetch(claimsUser.profile);
+assert.equal(new DataView(forkData.buffer, forkData.byteOffset, forkData.byteLength).getUint32(140, true), 2);
+assert.equal(sessionAfterFork.authenticatedFork, true);
+assert("conflicted" in sessionAfterFork.status);
+assert.equal(profileAfterFork.offlineAccessEnabled, false);
+assert.equal(asNumber(profileAfterFork.conflictCount), 1);
+assert(asNumber(profileAfterFork.revokedAt) > 0);
+assert.equal(asNumber(sessionAfterFork.aggregateOfflineExposure), 55);
+assert.equal(asNumber(sessionAfterFork.uniqueEdgeCount), 2);
+await expectFailure("revoked payer new session", async () =>
+  createSession(claimsUser, 97, 300, 100, (await chainNow()) + 3600),
+);
+pass("authenticated fork and atomic revocation", "second verified child records a two-branch fork, marks the session conflicted, revokes offline access, and blocks new sessions");
 
 const unreachableCredential = buildCredential(
   merchant.publicKey,
@@ -842,9 +905,17 @@ await expectFailure("paused claim submission", () =>
 );
 await setPaused(admin, false);
 const claimsSessionAfterPause = await program.account.offlineSession.fetch(claimsSession);
-assert.equal(asNumber(claimsSessionAfterPause.aggregateOfflineExposure), 25);
-assert.equal(asNumber(claimsSessionAfterPause.uniqueEdgeCount), 1);
+assert.equal(asNumber(claimsSessionAfterPause.aggregateOfflineExposure), 55);
+assert.equal(asNumber(claimsSessionAfterPause.uniqueEdgeCount), 2);
 pass("claim pause gate", "pause rejects new evidence accounts and leaves economic counters unchanged");
+
+await expectFailure("finalization before claim deadline", () =>
+  program.methods
+    .beginFinalization()
+    .accounts({ session: claimsSession, vault: claimsUser.vault })
+    .rpc(),
+);
+pass("claim-window reserve gate", "finalization cannot freeze claims or release collateral before the authoritative six-hour deadline");
 
 const attackerToken = await createAssociatedTokenAccount(
   connection,
@@ -868,5 +939,43 @@ assert.equal((await getAccount(connection, main.vaultToken)).amount, 350n);
 pass("PDA ownership and signing", "admin/emergency signatures cannot move vault collateral");
 
 await mkdir("target", { recursive: true });
+const merchantToken = (
+  await getOrCreateAssociatedTokenAccount(connection, payer, settlementMint, merchant.publicKey)
+).address;
+const otherMerchantToken = (
+  await getOrCreateAssociatedTokenAccount(connection, payer, settlementMint, otherMerchant.publicKey)
+).address;
+const forkEdge = edgePda(claimsSession, genesisHash, 1, forkCredential.stateHash);
+const claimEntries = submittedClaimOrder.map((entry) => ({
+  claim: entry.pda.toBase58(),
+  edge: (Buffer.compare(Buffer.from(entry.hash), Buffer.from(forkCredential.credentialHash)) === 0
+    ? forkEdge
+    : firstEdge).toBase58(),
+  credentialHash: Buffer.from(entry.hash).toString("hex"),
+}));
+await writeFile(
+  "target/sprint-6-finalization-fixture.json",
+  `${JSON.stringify({
+    slot: await connection.getSlot("confirmed"),
+    session: claimsSession.toBase58(),
+    profile: claimsUser.profile.toBase58(),
+    vault: claimsUser.vault.toBase58(),
+    vaultToken: claimsUser.vaultToken.toBase58(),
+    ownerToken: claimsUser.ownerToken.toBase58(),
+    ownerSecretKey: Array.from(claimsUser.owner.secretKey),
+    settlementMint: settlementMint.toBase58(),
+    firstEdge: firstEdge.toBase58(),
+    forkEdge: forkEdge.toBase58(),
+    forkRecord: forkPda(claimsSession, genesisHash, 1).toBase58(),
+    merchantToken: merchantToken.toBase58(),
+    otherMerchantToken: otherMerchantToken.toBase58(),
+    merchant: merchant.publicKey.toBase58(),
+    otherMerchant: otherMerchant.publicKey.toBase58(),
+    representativeClaim: wrapperClaim.toBase58(),
+    forkClaim: claimPda(claimsSession, forkCredential.credentialHash).toBase58(),
+    rejectedClaim: firstClaim.toBase58(),
+    claims: claimEntries,
+  }, null, 2)}\n`,
+);
 await writeFile("target/runtime-proof.json", `${JSON.stringify(report, null, 2)}\n`);
 console.log(`RUNTIME TESTS PASS (${report.tests.length} checks)`);
