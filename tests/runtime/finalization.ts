@@ -121,6 +121,7 @@ const beginSignature = await program.methods
   .beginFinalization()
   .accounts({ session, vault })
   .rpc();
+await confirmSignature(beginSignature);
 await recordCompute("begin_finalization", beginSignature);
 let frozenSession = await program.account.offlineSession.fetch(session);
 assert("reconciling" in frozenSession.status);
@@ -139,6 +140,7 @@ for (const edgeAddress of [fixture.firstEdge, fixture.forkEdge]) {
       parentEdge: session,
     })
     .rpc();
+  await confirmSignature(signature);
   await recordCompute("classify_edge", signature);
 }
 await expectFailure("duplicate edge classification", () =>
@@ -237,6 +239,7 @@ const firstSettlement = await program.methods
     tokenProgram: TOKEN_PROGRAM_ID,
   })
   .rpc();
+await confirmSignature(firstSettlement);
 await recordCompute("settle_claim", firstSettlement);
 await expectFailure("claim settlement replay", () =>
   program.methods
@@ -255,7 +258,7 @@ await expectFailure("claim settlement replay", () =>
     })
     .rpc(),
 );
-await program.methods
+const secondSettlement = await program.methods
   .settleClaim()
   .accounts({
     config,
@@ -270,6 +273,7 @@ await program.methods
     tokenProgram: TOKEN_PROGRAM_ID,
   })
   .rpc();
+await confirmSignature(secondSettlement);
 
 assert.equal((await getAccount(connection, key(fixture.merchantToken))).amount - merchantBefore, 25n);
 assert.equal((await getAccount(connection, key(fixture.otherMerchantToken))).amount - otherBefore, 30n);
@@ -314,6 +318,7 @@ const withdrawalSignature = await program.methods
   })
   .signers([owner])
   .rpc();
+await confirmSignature(withdrawalSignature);
 await recordCompute("withdraw_collateral", withdrawalSignature);
 const emptyVault = await program.account.collateralVault.fetch(vault);
 assert.equal(asNumber(emptyVault.depositedAmount), 0);
@@ -325,12 +330,13 @@ const insolventSession = key(fixture.insolvency.session);
 const insolventProfile = key(fixture.insolvency.profile);
 const insolventVault = key(fixture.insolvency.vault);
 const insolventVaultToken = key(fixture.insolvency.vaultToken);
-await program.methods
+const insolventBeginSignature = await program.methods
   .beginFinalization()
   .accounts({ session: insolventSession, vault: insolventVault })
   .rpc();
+await confirmSignature(insolventBeginSignature);
 for (const entry of fixture.insolvency.claims) {
-  await program.methods
+  const signature = await program.methods
     .classifyEdge()
     .accounts({
       session: insolventSession,
@@ -339,9 +345,10 @@ for (const entry of fixture.insolvency.claims) {
       parentEdge: insolventSession,
     })
     .rpc();
+  await confirmSignature(signature);
 }
 for (const entry of fixture.insolvency.claims) {
-  await program.methods
+  const signature = await program.methods
     .allocateNextClaim()
     .accounts({
       session: insolventSession,
@@ -350,6 +357,7 @@ for (const entry of fixture.insolvency.claims) {
       stateEdge: key(entry.edge),
     })
     .rpc();
+  await confirmSignature(signature);
 }
 const insolventAllocated = await program.account.offlineSession.fetch(insolventSession);
 const insolventReserved = await program.account.collateralVault.fetch(insolventVault);
@@ -378,7 +386,7 @@ const insolvencyBalances = await Promise.all(
   ),
 );
 for (const [index, entry] of fixture.insolvency.claims.entries()) {
-  await program.methods
+  const signature = await program.methods
     .settleClaim()
     .accounts({
       config,
@@ -393,6 +401,7 @@ for (const [index, entry] of fixture.insolvency.claims.entries()) {
       tokenProgram: TOKEN_PROGRAM_ID,
     })
     .rpc();
+  await confirmSignature(signature);
   assert.equal(
     (await getAccount(connection, key(entry.merchantToken))).amount
       - insolvencyBalances[index]!,
