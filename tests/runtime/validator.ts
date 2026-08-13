@@ -929,13 +929,21 @@ const insolventSessionResult = await createSession(
   insolventDevicePublic,
 );
 const insolventSession = insolventSessionResult.session;
-await program.methods
+const insolventAuthorizationSignature = await program.methods
   .registerDeviceAuthorization(nonzero(201))
   .accounts({ config, owner: insolventUser.owner.publicKey, session: insolventSession })
   .signers([insolventUser.owner])
   .rpc();
-const insolventSessionState = await program.account.offlineSession.fetch(insolventSession);
-assert(Array.from(insolventSessionState.deviceAuthorizationHash).some((byte) => byte !== 0));
+await connection.confirmTransaction(insolventAuthorizationSignature, "confirmed");
+const insolventSessionState = await program.account.offlineSession.fetch(
+  insolventSession,
+  "confirmed",
+);
+assert.deepEqual(
+  Array.from(insolventSessionState.deviceAuthorizationHash),
+  nonzero(201),
+  "registered insolvency device authorization must round-trip byte-for-byte",
+);
 const insolventDomain: DomainContext = {
   networkId: NetworkId.Localnet,
   clusterGenesisHash: Uint8Array.from(clusterGenesisHash),
