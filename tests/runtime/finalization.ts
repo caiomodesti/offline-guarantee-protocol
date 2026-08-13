@@ -103,6 +103,10 @@ async function recordCompute(name: string, signature: string): Promise<void> {
   report.computeUnits[name] = transaction?.meta?.computeUnitsConsumed ?? null;
 }
 
+async function confirmSignature(signature: string): Promise<void> {
+  await connection.confirmTransaction(signature, "confirmed");
+}
+
 function pass(name: string, evidence: string): void {
   report.tests.push({ name, status: "PASS", evidence });
   console.log(`PASS ${name} - ${evidence}`);
@@ -172,6 +176,7 @@ for (const entry of fixture.claims) {
     .allocateNextClaim()
     .accounts({ session, vault, claim: key(entry.claim), stateEdge: key(entry.edge) })
     .rpc();
+  await confirmSignature(signature);
   await recordCompute("allocate_next_claim", signature);
 }
 
