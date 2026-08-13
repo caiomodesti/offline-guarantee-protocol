@@ -1086,20 +1086,51 @@ const claimEntries = submittedClaimOrder.map((entry) => ({
     : firstEdge).toBase58(),
   credentialHash: Buffer.from(entry.hash).toString("hex"),
 }));
-const collectionSlot = await connection.getSlot("confirmed");
-const rootDeadline = Date.now() + 120_000;
-let finalizedSlot = await connection.getSlot("finalized");
-while (finalizedSlot < collectionSlot && Date.now() < rootDeadline) {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  finalizedSlot = await connection.getSlot("finalized");
-}
-assert(
-  finalizedSlot >= collectionSlot,
-  `validator did not root collection slot ${collectionSlot}; finalized=${finalizedSlot}`,
+const persistenceBarrierSignature = await provider.sendAndConfirm(
+  new Transaction().add(SystemProgram.transfer({
+    fromPubkey: payer.publicKey,
+    toPubkey: payer.publicKey,
+    lamports: 0,
+  })),
+  [],
+  { commitment: "confirmed", preflightCommitment: "confirmed" },
 );
+await connection.confirmTransaction(persistenceBarrierSignature, "finalized");
+const requiredPhaseTwoAccounts = [
+  claimsSession,
+  claimsUser.profile,
+  claimsUser.vault,
+  claimsUser.vaultToken,
+  claimsUser.ownerToken,
+  firstEdge,
+  forkEdge,
+  forkPda(claimsSession, genesisHash, 1),
+  merchantToken,
+  otherMerchantToken,
+  ...claimEntries.flatMap((entry) => [new PublicKey(entry.claim), new PublicKey(entry.edge)]),
+  insolventSession,
+  insolventUser.profile,
+  insolventUser.vault,
+  insolventUser.vaultToken,
+  forkPda(insolventSession, insolventGenesis, 1),
+  ...insolvencyOrder.flatMap((entry) => [entry.claim, entry.edge, entry.merchantToken]),
+];
+const finalizedAccounts = await connection.getMultipleAccountsInfo(
+  requiredPhaseTwoAccounts,
+  "finalized",
+);
+const missingFinalizedAccounts = requiredPhaseTwoAccounts.filter(
+  (_, index) => finalizedAccounts[index] === null,
+);
+assert.deepEqual(
+  missingFinalizedAccounts.map((address) => address.toBase58()),
+  [],
+  "every phase-two account must exist at finalized commitment before snapshot",
+);
+const collectionSlot = await connection.getSlot("finalized");
 pass(
   "persisted-ledger root barrier",
-  `all phase-one state reached finalized slot ${finalizedSlot} before Anchor stopped the validator`,
+  `barrier transaction and ${requiredPhaseTwoAccounts.length} required accounts reached finalized slot ${collectionSlot} before Anchor stopped the validator`,
 );
 await writeFile(
   "target/sprint-6-finalization-fixture.json",
