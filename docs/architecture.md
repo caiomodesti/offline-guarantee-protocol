@@ -43,6 +43,14 @@ flowchart TB
 
 An off-chain component MAY propose results but MUST NOT make an economic fact true merely by writing a database row.
 
+## Offline QR mobile boundary
+
+Sprint 7 implements two Expo SDK 57 development-build apps and `@ogp/transports`. The merchant challenge is created without network access and before a payer session is known. It is bound to network, cluster genesis, program, merchant/device, amount, and a CSPRNG nonce. The payer response carries the exact session-domain `PaymentCredential` plus the complete portable authorization/certificate/ancestor chain.
+
+The QR layer fragments payloads, hashes the complete transfer, and rejects missing, mixed, non-canonical, oversized, or tampered frames. It does not reinterpret canonical credential bytes. Merchant acceptance requires production verifier output and durable evidence storage; local UI state alone cannot produce `Guarantee present`. The optional return receipt is transport acknowledgement only.
+
+Payer signing keys and merchant device keys use native secure storage. Public proof bundles and pending claims are locally persistent but not confidential. App restart must never reset the payer branch tip or silently reuse an outstanding challenge. See [ADR-0018](adr/0018-sprint-7-qr-mobile-flow.md).
+
 ## Instruction placement for MVP
 
 | Action | Placement and rationale |

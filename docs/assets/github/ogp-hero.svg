@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="520" viewBox="0 0 1600 520" role="img" aria-labelledby="title desc">
+  <title id="title">Offline Guarantee Protocol</title>
+  <desc id="desc">Financial-security infrastructure for economically bounded offline payments on Solana.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#080D1A"/><stop offset="1" stop-color="#11192B"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#6E91F2"/><stop offset="1" stop-color="#A579E8"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#6E91F2" stop-opacity=".28"/><stop offset="1" stop-color="#6E91F2" stop-opacity="0"/></radialGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000" flood-opacity=".32"/></filter>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#A7BDF6" stroke-opacity=".045"/></pattern>
+  </defs>
+  <rect width="1600" height="520" rx="30" fill="url(#bg)"/>
+  <rect width="1600" height="520" rx="30" fill="url(#grid)"/>
+  <circle cx="1340" cy="100" r="380" fill="url(#glow)"/>
+  <g transform="translate(86 78)">
+    <g filter="url(#shadow)">
+      <rect width="104" height="104" rx="26" fill="#11192B" stroke="#334467"/>
+      <path d="M27 72V32h21c18 0 29 8 29 20S66 72 48 72H27Z" fill="none" stroke="url(#accent)" stroke-width="9" stroke-linejoin="round"/>
+      <path d="M48 52h27M75 52l16-15M75 52l16 15" fill="none" stroke="#F2F5FA" stroke-width="6" stroke-linecap="round"/>
+    </g>
+    <text x="136" y="34" fill="#A7BDF6" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="18" font-weight="700" letter-spacing="4">OFFLINE GUARANTEE PROTOCOL</text>
+    <text x="136" y="84" fill="#F2F5FA" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="700" letter-spacing="-2">Bound the risk.</text>
+    <text x="136" y="137" fill="#F2F5FA" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="700" letter-spacing="-2">Prove the outcome.</text>
+    <text x="0" y="210" fill="#A9B6D0" font-family="Arial, Helvetica, sans-serif" font-size="22">Offline payment risk made detectable, collateralized, deterministic,</text>
+    <text x="0" y="242" fill="#A9B6D0" font-family="Arial, Helvetica, sans-serif" font-size="22">and economically bounded on Solana.</text>
+    <g transform="translate(0 292)" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="14" font-weight="700">
+      <g><rect width="132" height="42" rx="21" fill="#172442" stroke="#4768B8"/><circle cx="22" cy="21" r="5" fill="#6E91F2"/><text x="38" y="26" fill="#DDE7FF">DETECT</text></g>
+      <g transform="translate(146)"><rect width="178" height="42" rx="21" fill="#172442" stroke="#4768B8"/><circle cx="22" cy="21" r="5" fill="#6E91F2"/><text x="38" y="26" fill="#DDE7FF">COLLATERALIZE</text></g>
+      <g transform="translate(338)"><rect width="154" height="42" rx="21" fill="#172442" stroke="#4768B8"/><circle cx="22" cy="21" r="5" fill="#8A85EC"/><text x="38" y="26" fill="#E5E2FF">RECONCILE</text></g>
+      <g transform="translate(506)"><rect width="130" height="42" rx="21" fill="#172442" stroke="#4768B8"/><circle cx="22" cy="21" r="5" fill="#A579E8"/><text x="38" y="26" fill="#EEE3FF">REVOKE</text></g>
+    </g>
+  </g>
+  <g transform="translate(1100 96)" filter="url(#shadow)">
+    <rect width="390" height="330" rx="24" fill="#0D1424" stroke="#2D3D60"/>
+    <text x="28" y="42" fill="#8898B7" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="13" font-weight="700" letter-spacing="2">CURRENT GATE</text>
+    <text x="28" y="83" fill="#F2F5FA" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">Sprint 7 · QR Mobile</text>
+    <rect x="28" y="104" width="196" height="32" rx="16" fill="#342C19" stroke="#8E7330"/>
+    <circle cx="47" cy="120" r="5" fill="#F4C95D"/>
+    <text x="61" y="125" fill="#F8D98B" font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="12" font-weight="700">DEVICE TEST OPEN</text>
+    <g transform="translate(28 166)" font-family="Arial, Helvetica, sans-serif">
+      <circle cx="7" cy="2" r="7" fill="#4ADE80"/><path d="m3 2 3 3 6-7" fill="none" stroke="#07130B" stroke-width="2"/><text x="24" y="8" fill="#D8E1F0" font-size="16">Protocol + economic core</text>
+      <circle cx="7" cy="42" r="7" fill="#4ADE80"/><path d="m3 42 3 3 6-7" fill="none" stroke="#07130B" stroke-width="2"/><text x="24" y="48" fill="#D8E1F0" font-size="16">SBF runtime + SPL CPI</text>
+      <circle cx="7" cy="82" r="7" fill="#4ADE80"/><path d="m3 82 3 3 6-7" fill="none" stroke="#07130B" stroke-width="2"/><text x="24" y="88" fill="#D8E1F0" font-size="16">Payer + merchant APKs</text>
+      <circle cx="7" cy="122" r="7" fill="#F4C95D"/><text x="24" y="128" fill="#D8E1F0" font-size="16">Two-device airplane-mode test</text>
+    </g>
+  </g>
+</svg>

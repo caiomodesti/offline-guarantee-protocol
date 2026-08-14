@@ -2,9 +2,11 @@ node_modules/
 .pnpm-store/
 dist/
 coverage/
+artifacts/
 target/
 .anchor/
 test-ledger/
 *-keypair.json
 *.tsbuildinfo
 .DS_Store
+.brand-preview/

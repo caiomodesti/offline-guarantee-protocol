@@ -9,7 +9,7 @@ defi:
   emergency_pause: true
 project:
   name: Offline Guarantee Protocol
-  phase: sprint-5-reconciliation
+  phase: sprint-7-qr-mobile-mvp
   settlement_asset: mock-spl-token
   money_representation: u64-minor-units
 offline_ledger:
@@ -23,9 +23,15 @@ runtime_acceptance:
   solana_version: 3.1.10
   anchor_version: 1.0.2
   validator_backend: solana-test-validator
-  run_id: 31587518880
-  tested_commit: ad986a29420b1820d6cee551ae4b60890ce012b4
+  run_id: 31728923466
+  tested_commit: 359a9f40183ea1a350db1b5e1f010dbb569a84ac
   status: pass
+mobile:
+  platform: react-native-expo-development-build
+  expo_sdk: 57
+  wallet_method: mwa-planned-for-sprint-8
+  qr_transport: fragmented-hash-bound
+  physical_device_tested: false
 ```
 
-OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 and its pinned SBF/validator runtime acceptance gate pass. Sprint 4 implements claim collection and economic state-edge idempotency. Sprint 5 implements deterministic host-side DAG reconciliation/classification/exposure without economic authority. Economic resolution remains Sprint 6. Devnet remains scheduled for Sprint 12.
+OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 and its pinned SBF/validator runtime acceptance gate pass. Sprint 4 claim collection, Sprint 5 reconciliation, and Sprint 6 economic resolution are complete. Sprint 7 is limited to the offline payer/merchant QR mobile flow. Normal reconnect/claim/settlement E2E remains Sprint 8, Bluetooth remains Sprint 11, and devnet remains Sprint 12.

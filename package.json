@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false",
+    "typecheck:mobile": "corepack pnpm --filter payer-mobile typecheck && corepack pnpm --filter merchant-mobile typecheck",
     "test:ts": "tsc -b && vitest run",
     "vectors:generate": "tsc -b && tsx scripts/generate-vectors.ts",
     "vectors:refresh": "tsc -b && tsx scripts/generate-vectors.ts --refresh",
@@ -18,7 +19,7 @@
     "test:runtime": "tsx tests/runtime/validator.ts",
     "anchor:build": "anchor build",
     "test": "tsc -b && vitest run && tsx scripts/generate-vectors.ts && cargo test --manifest-path packages/canonical-codec/rust/Cargo.toml && cargo test --manifest-path programs/offline-guarantee/Cargo.toml",
-    "check": "tsc -b --pretty false && vitest run && tsx scripts/generate-vectors.ts && cargo test --manifest-path packages/canonical-codec/rust/Cargo.toml && cargo test --manifest-path programs/offline-guarantee/Cargo.toml"
+    "check": "tsc -b --pretty false && corepack pnpm typecheck:mobile && vitest run && tsx scripts/generate-vectors.ts && cargo test --manifest-path packages/canonical-codec/rust/Cargo.toml && cargo test --manifest-path programs/offline-guarantee/Cargo.toml"
   },
   "devDependencies": {
     "@anchor-lang/core": "1.0.2",
@@ -29,6 +30,7 @@
     "@ogp/protocol-sdk": "workspace:*",
     "@ogp/reconciliation": "workspace:*",
     "@ogp/shared-types": "workspace:*",
+    "@ogp/transports": "workspace:*",
     "@solana/spl-token": "0.4.14",
     "@solana/web3.js": "1.98.4",
     "@types/bn.js": "5.2.0",

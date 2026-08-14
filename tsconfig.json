@@ -8,6 +8,7 @@
     { "path": "packages/offline-ledger" },
     { "path": "packages/protocol-sdk" },
     { "path": "packages/reconciliation" },
+    { "path": "packages/transports" },
     { "path": "tests/runtime" }
   ]
 }

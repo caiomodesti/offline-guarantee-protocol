@@ -19,5 +19,6 @@
 | [0015](0015-sprint-4-claim-verification.md) | Native Ed25519 claim verification and economic-edge indexing | Accepted for MVP |
 | [0016](0016-sprint-5-deterministic-reconciliation.md) | Sprint 5 deterministic reconciliation boundary | Accepted for MVP |
 | [0017](0017-sprint-6-economic-resolution.md) | Sprint 6 verified finalization, coverage, SPL settlement, and withdrawal reserve | Accepted for MVP |
+| [0018](0018-sprint-7-qr-mobile-flow.md) | Fragmented offline QR payer/merchant flow and local durability | Accepted for MVP |
 
 “Accepted for MVP design” does not authorize implementation before the relevant sprint.

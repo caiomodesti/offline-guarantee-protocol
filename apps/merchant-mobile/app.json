@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "OGP Merchant",
+    "slug": "ogp-merchant",
+    "scheme": "ogp-merchant",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-dev-client",
+      ["expo-camera", { "cameraPermission": "Permitir que o OGP Merchant valide os QR codes de pagamento.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }],
+      ["expo-secure-store", { "configureAndroidBackup": true }]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "protocol.ogp.merchant"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "protocol.ogp.merchant"
+    }
+  }
+}
