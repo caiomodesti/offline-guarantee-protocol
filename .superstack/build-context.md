@@ -31,7 +31,7 @@ mobile:
   expo_sdk: 57
   wallet_method: mwa-planned-for-sprint-8
   qr_transport: fragmented-hash-bound
-  standalone_preview_status: pass-run-31768054067
+  standalone_preview_status: pass-arm64-run-31842955479
   physical_device_tested: false
 ```
 

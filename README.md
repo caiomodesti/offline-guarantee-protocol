@@ -223,7 +223,7 @@ Pending settlement
 
 ### Android artifacts
 
-Native development APKs for payer and merchant compiled successfully in [GitHub Actions run 31763513716](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31763513716), proving native compilation but not standalone operation: those artifacts require an Expo development server. Corrective [run 31768054067](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31768054067) compiled both standalone previews, verified `assets/index.android.bundle` inside each APK, recorded SHA-256 digests, and published the physical-test artifacts.
+Native development APKs for payer and merchant compiled successfully in [GitHub Actions run 31763513716](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31763513716), proving native compilation but not standalone operation: those artifacts require an Expo development server. Corrective [run 31768054067](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31768054067) proved standalone bundling. Physical-device [run 31842955479](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31842955479) publishes compact `arm64-v8a` previews and verifies their v2 signature, manifest, ABI, embedded bundle, and SHA-256 digest.
 
 Use the [two-device installation and airplane-mode test](docs/sprint-7-device-test.md). The remaining acceptance gate is a complete camera exchange with both devices in airplane mode, including restart and SecureStore behavior.
 
