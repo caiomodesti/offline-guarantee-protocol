@@ -7,7 +7,7 @@ Sprint 8 status: not started
 
 ## Outcome
 
-The Sprint 7 implementation is complete at source, host-test, TypeScript, Metro Android-bundle, and native Android APK level. It is not yet fully accepted because this Windows host has no Android SDK, ADB, emulator, or connected test device. The pinned GitHub Actions gate built and published development APKs for both apps. The final two-device airplane-mode camera test remains mandatory.
+The Sprint 7 implementation is complete at source, host-test, TypeScript, Metro Android-bundle, and native Android compile level. It is not yet fully accepted because this Windows host has no Android SDK, ADB, emulator, or connected test device. The first GitHub Actions gate built development-client APKs for both apps; those artifacts prove native compilation but cannot initialize without an Expo development server. A corrective standalone-preview gate now embeds the JavaScript bundle before the mandatory two-device airplane-mode camera test.
 
 Current decision: **CONDITIONAL PASS — NO ADVANCE TO SPRINT 8 until the physical offline scan gate passes.**
 
@@ -134,6 +134,21 @@ The QR tests cover challenge and portable-bundle round trips, fragmentation, rev
 
 The workflow emitted only a GitHub Actions runtime deprecation annotation for Node 20-based action internals being forced onto Node 24. It did not affect either APK build. The artifacts are retained by GitHub Actions according to repository retention policy and were not committed to Git.
 
+### Standalone preview correction
+
+Physical installation showed that both `assembleDebug` artifacts opened the Expo development-client launcher (`Local server`, `Connect`, `Fetch development servers`, `Updates`, and `Scan QR code`). This is expected behavior for a custom development build, but it means the artifacts did not satisfy the standalone device-test prerequisite. The user did not misconfigure either phone.
+
+The corrected workflow uses Gradle `assembleRelease`, which invokes Expo's `export:embed` bundling path, and then inspects the APK archive for an embedded Android JavaScript bundle. It also publishes a SHA-256 digest. The generated release variant is signed with its generated development keystore and is therefore explicitly a **standalone physical-test preview, not a production release**.
+
+Corrective [GitHub Actions run 31768054067](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31768054067), commit `9a66f9da098634191cbf54645f5cafa273e17900`: **PASS**.
+
+| App | Artifact | Workflow archive | Embedded bundle | APK SHA-256 |
+|---|---|---:|---:|---|
+| Merchant | `sprint-7-merchant-mobile-android-standalone-preview` | 61,549,176 bytes | `assets/index.android.bundle`, 2,428,856 bytes | `d74da32997b8c989f72416820901c8209ce5db979ec31ae15e5f96c102d13016` |
+| Payer | `sprint-7-payer-mobile-android-standalone-preview` | 61,550,744 bytes | `assets/index.android.bundle`, 2,431,152 bytes | `21eaa64caf9e5791a38cb07abdf7f481a536ceba94b84bb574508dd88cc463e5` |
+
+Both jobs installed the pinned workspace, passed protocol and mobile typechecks, generated clean native projects, compiled `assembleRelease`, verified the embedded bundle from inside the APK, generated the digest, and uploaded the artifact. The next and only Sprint 7 gate is the [two-device airplane-mode test](sprint-7-device-test.md).
+
 ## Hostile audit
 
 ### Findings fixed
@@ -171,7 +186,8 @@ The workflow emitted only a GitHub Actions runtime deprecation annotation for No
 | Restart-safe payer branch | PASS by implementation/typecheck; physical kill test pending |
 | Evidence persisted before merchant acceptance | PASS by implementation/typecheck; physical kill test pending |
 | Android Metro bundles | PASS |
-| Native Android APK compile | PASS — both apps, run 31763513716 |
+| Native Android development-client compile | PASS — both apps, run 31763513716 |
+| Standalone preview APK + embedded bundle | PASS — both apps, run 31768054067 |
 | Two-device airplane-mode QR exchange | NOT RUN |
 | Physical SecureStore/restart/camera matrix | NOT RUN |
 

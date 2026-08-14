@@ -3,13 +3,15 @@ name: Sprint 7 Mobile Android
 on:
   workflow_dispatch:
   push:
-    branches: [codex/sprint-7-qr-mobile-mvp]
+    branches:
+      - codex/sprint-7-qr-mobile-mvp
+      - codex/sprint-7-standalone-apks
 
 permissions:
   contents: read
 
 jobs:
-  android-development-build:
+  android-standalone-preview:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -54,13 +56,27 @@ jobs:
       - name: Generate Android native project
         run: corepack pnpm --filter "${{ matrix.app }}" exec expo prebuild --platform android --no-install --clean
 
-      - name: Compile development APK
+      # This release variant embeds the Expo/React Native bundle and assets. It
+      # deliberately uses the generated debug keystore for physical MVP testing;
+      # it is a standalone preview artifact, not a production-signed release.
+      - name: Compile standalone preview APK
         working-directory: apps/${{ matrix.app }}/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Verify embedded JavaScript bundle and calculate SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find "apps/${{ matrix.app }}/android/app/build/outputs/apk/release" -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$apk"
+          unzip -l "$apk" | grep -E 'assets/(index\.android\.bundle|_expo/static/js/android/.+\.js)'
+          sha256sum "$apk" | tee "${apk}.sha256"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: sprint-7-${{ matrix.app }}-android-debug
+          name: sprint-7-${{ matrix.app }}-android-standalone-preview
           if-no-files-found: error
-          path: apps/${{ matrix.app }}/android/app/build/outputs/apk/debug/*.apk
+          path: |
+            apps/${{ matrix.app }}/android/app/build/outputs/apk/release/*.apk
+            apps/${{ matrix.app }}/android/app/build/outputs/apk/release/*.sha256

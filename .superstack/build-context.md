@@ -27,10 +27,11 @@ runtime_acceptance:
   tested_commit: 359a9f40183ea1a350db1b5e1f010dbb569a84ac
   status: pass
 mobile:
-  platform: react-native-expo-development-build
+  platform: react-native-expo-standalone-preview
   expo_sdk: 57
   wallet_method: mwa-planned-for-sprint-8
   qr_transport: fragmented-hash-bound
+  standalone_preview_status: pass-run-31768054067
   physical_device_tested: false
 ```
 
