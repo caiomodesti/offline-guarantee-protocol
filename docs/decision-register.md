@@ -45,7 +45,10 @@ Every architectural question is classified. “Open risk” means the MVP behavi
 | Identity | DECIDED FOR MVP | Opaque mock attestation; no PII on-chain |
 | Identity expires after session issuance | DECIDED FOR MVP | Existing timely credentials remain eligible; future sessions are blocked |
 | Real KYC/Pix/PSP | DEFERRED | Explicitly outside MVP |
-| QR transport | DECIDED FOR MVP | First transport in Sprint 7 |
+| QR transport | DECIDED FOR MVP | `OGPQR1` fragmented, SHA-256-bound canonical payloads; out-of-order/duplicate-safe, mixed/tampered/incomplete transfer rejection |
+| Merchant challenge session binding | DECIDED FOR MVP | Initial unsigned challenge is environment-bound because merchant does not yet know payer session; the signed response binds all economic fields to the exact session domain |
+| QR receipt authority | DECIDED FOR MVP | Transport acknowledgement only; no settlement, coverage, time-order, or economic authority |
+| Mobile restart safety | DECIDED FOR MVP | Payer persists the new proof bundle before display and resumes pending delivery; merchant persists challenge and evidence before acceptance |
 | Bluetooth/NFC | DEFERRED | After functional QR flow / future |
 | Merchant receipt signature | DEFERRED | Potential time/non-repudiation enhancement |
 | Privacy | OPEN RISK | Public metadata permits correlation; no MVP privacy guarantee |

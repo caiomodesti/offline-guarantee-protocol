@@ -43,7 +43,7 @@ Coverage is `FULLY_COVERED` when frozen eligible claims are within the cap and `
 
 Sprint 0 is frozen as the MVP design baseline. Sprint 1 implements the portable cryptographic core in TypeScript plus an independent Rust conformance harness. Sprint 2 implements the deterministic offline ledger. Sprint 3 implements the Anchor collateral core: protocol config and pause, opaque user profiles, PDA-controlled classic SPL vaults, checked deposits, and collateral-reserving offline-session activation.
 
-Sprint 3 collateral/session behavior and its remote Linux SBF/validator gate pass. Sprint 4 now implements claim collection, native Ed25519 instruction introspection, exact-credential replay protection, merchant binding, deadline/transition checks, and economic state-edge idempotency. Reconciliation, fork classification, settlement, mobile applications, QR transport, and dashboard remain scheduled for later sprints; no claim is paid during collection.
+Sprints 3 through 6 now pass the collateral/session runtime gate, claim collection, deterministic reconciliation, economic allocation, real SPL settlement, revocation, close, and withdrawal checks. Sprint 7 implements the QR payer/merchant mobile flow with portable offline verification, fragmented hash-bound frames, secure device-key storage, and restart-safe local evidence. Native two-device airplane-mode acceptance remains pending; Sprint 8 reconnect/claim/settlement E2E has not started.
 
 ## Specification map
 
@@ -60,6 +60,10 @@ Sprint 3 collateral/session behavior and its remote Linux SBF/validator gate pas
 - [Sprint 1 implementation report and hostile audit](docs/sprint-1-report.md)
 - [Sprint 2 offline-ledger report and hostile audit](docs/sprint-2-report.md)
 - [Sprint 3 collateral-core report and hostile audit](docs/sprint-3-report.md)
+- [Sprint 4 claim-verification report](docs/sprint-4-report.md)
+- [Sprint 5 reconciliation report](docs/sprint-5-report.md)
+- [Sprint 6 economic-resolution report](docs/sprint-6-report.md)
+- [Sprint 7 QR mobile report](docs/sprint-7-report.md)
 - [Architecture decisions](docs/adr/README.md)
 
 ## Local verification
