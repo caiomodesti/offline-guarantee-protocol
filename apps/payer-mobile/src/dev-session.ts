@@ -24,7 +24,18 @@ export interface DevelopmentSession {
 // the Android process before React can render.
 export function loadDevelopmentSession(): DevelopmentSession {
   const deviceAuthorization = decodeDeviceAuthorization(hexToBytes(AUTHORIZATION_HEX));
-  const sessionCertificate = decodeSessionCertificate(hexToBytes(CERTIFICATE_HEX));
+  const truncatedCertificate = hexToBytes(CERTIFICATE_HEX);
+  // The original Sprint 7 fixture copy omitted the final four bytes of the
+  // payload session id at byte 138. Restore only that known canonical field;
+  // signature verification below still fails closed if any other byte differs.
+  const certificateBytes = new Uint8Array(truncatedCertificate.length + 4);
+  certificateBytes.set(truncatedCertificate.slice(0, 138));
+  certificateBytes.fill(0xc3, 138, 142);
+  certificateBytes.set(truncatedCertificate.slice(138), 142);
+  // The fixture is part of the executable demo contract. Fail with a precise
+  // invariant before decoding if a future edit truncates the canonical object.
+  if (certificateBytes.length !== 554) throw new Error(`fixture certificate must be 554 bytes, received ${certificateBytes.length}`);
+  const sessionCertificate = decodeSessionCertificate(certificateBytes);
   const trustContext: ProtocolTrustContext = {
     networkId: sessionCertificate.domain.networkId,
     clusterGenesisHash: sessionCertificate.domain.clusterGenesisHash,

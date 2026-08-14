@@ -50,6 +50,9 @@ jobs:
           corepack pnpm typecheck
           corepack pnpm typecheck:mobile
 
+      - name: Test protocol and payer bootstrap fixture
+        run: corepack pnpm test:ts
+
       - name: Build shared protocol packages
         run: corepack pnpm build
 
