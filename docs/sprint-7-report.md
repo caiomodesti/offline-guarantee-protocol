@@ -7,9 +7,9 @@ Sprint 8 status: not started
 
 ## Outcome
 
-The Sprint 7 implementation is complete at source, host-test, TypeScript, and Metro Android-bundle level. It is not yet fully accepted because this Windows host has no Android SDK, ADB, emulator, or connected test device. A pinned GitHub Actions gate now performs native Android development APK builds for both apps. The final two-device airplane-mode camera test remains mandatory.
+The Sprint 7 implementation is complete at source, host-test, TypeScript, Metro Android-bundle, and native Android APK level. It is not yet fully accepted because this Windows host has no Android SDK, ADB, emulator, or connected test device. The pinned GitHub Actions gate built and published development APKs for both apps. The final two-device airplane-mode camera test remains mandatory.
 
-Current decision: **CONDITIONAL PASS — NO ADVANCE TO SPRINT 8 until native CI and physical offline scan gates pass.**
+Current decision: **CONDITIONAL PASS — NO ADVANCE TO SPRINT 8 until the physical offline scan gate passes.**
 
 ## Environment
 
@@ -125,7 +125,14 @@ The QR tests cover challenge and portable-bundle round trips, fragmentation, rev
 
 ## Native Android gate
 
-`.github/workflows/sprint-7-mobile-android.yml` runs a payer/merchant matrix on Ubuntu 24.04 with Node 22.17.0, pnpm 11.16.0, Temurin Java 17, Expo prebuild, and Gradle `assembleDebug`. It uploads one development APK per app. Result is pending until this branch is pushed.
+`.github/workflows/sprint-7-mobile-android.yml` ran a payer/merchant matrix on Ubuntu 24.04 with Node 22.17.0, pnpm 11.16.0, Temurin Java 17, Expo prebuild, and Gradle `assembleDebug`. Run [31763513716](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31763513716) completed successfully on 2026-08-14:
+
+- merchant native compile and artifact upload: PASS in 34m50s;
+- payer native compile and artifact upload: PASS in 37m07s;
+- `sprint-7-merchant-mobile-android-debug`: 90,697,156-byte workflow artifact;
+- `sprint-7-payer-mobile-android-debug`: 90,707,605-byte workflow artifact.
+
+The workflow emitted only a GitHub Actions runtime deprecation annotation for Node 20-based action internals being forced onto Node 24. It did not affect either APK build. The artifacts are retained by GitHub Actions according to repository retention policy and were not committed to Git.
 
 ## Hostile audit
 
@@ -148,7 +155,7 @@ The QR tests cover challenge and portable-bundle round trips, fragmentation, rev
 | High for any real use | Source extraction | Payer signing authority | Development device seed is compiled into fixture app | Replace with Sprint 8 freshly generated/provisioned session key; forbid fixture in devnet/release config | OPEN GATE |
 | High | Device compromise | Offline branch integrity | Software device keys remain extractable on rooted/compromised devices | Session/time/branch/cap scope; hardware-backed signing deferred | OPEN RISK |
 | Medium | Camera/device variance | Offline transport liveness | No physical scan performed on this host | Two Android devices, airplane mode, low light, dropped frames, restart matrix | OPEN GATE |
-| Medium | Native dependency incompatibility | App availability | Local host lacks Android toolchain | Remote Gradle matrix build | PENDING CI |
+| Medium | Native dependency incompatibility | App availability | Local host lacks Android toolchain | Remote Gradle matrix built both development APKs | CLOSED — CI PASS |
 | Medium | Local storage loss | Merchant evidence availability | AsyncStorage is not durable backup | Submit promptly after reconnect in Sprint 8; export/redundancy later | OPEN RISK |
 | Medium | Metadata disclosure | Privacy | Full prior branch and claims stored/displayed locally | Documented non-private MVP; selective disclosure deferred | OPEN RISK |
 | Low | Receipt spoofing | UX acknowledgement only | Receipt is unsigned | Never treat as economic proof; signature remains deferred | ACCEPTED MVP LIMITATION |
@@ -164,7 +171,7 @@ The QR tests cover challenge and portable-bundle round trips, fragmentation, rev
 | Restart-safe payer branch | PASS by implementation/typecheck; physical kill test pending |
 | Evidence persisted before merchant acceptance | PASS by implementation/typecheck; physical kill test pending |
 | Android Metro bundles | PASS |
-| Native Android APK compile | PENDING REMOTE CI |
+| Native Android APK compile | PASS — both apps, run 31763513716 |
 | Two-device airplane-mode QR exchange | NOT RUN |
 | Physical SecureStore/restart/camera matrix | NOT RUN |
 
@@ -172,4 +179,4 @@ The QR tests cover challenge and portable-bundle round trips, fragmentation, rev
 
 `CONDITIONAL PASS — IMPLEMENTATION COMPLETE, DEVICE ACCEPTANCE OPEN.`
 
-Sprint 8 must not start until the native Android workflow passes and a complete payer → merchant → payer exchange succeeds between two devices with both devices in airplane mode. This is an execution gate, not a chronology or architecture change.
+Sprint 8 must not start until a complete payer → merchant → payer exchange succeeds between two devices with both devices in airplane mode. Native Android compilation is proven; physical camera, SecureStore, and restart behavior remain the sole acceptance gate. This is an execution gate, not a chronology or architecture change.
