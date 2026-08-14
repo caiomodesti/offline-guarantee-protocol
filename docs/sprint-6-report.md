@@ -7,7 +7,7 @@ Sprint 7 status: not started
 
 ## Outcome
 
-Implementation is complete at the host-check level. Final PASS/NO-GO remains gated on the clean Linux SBF and two-phase validator run recorded below. The program contains no test clock bypass: the runtime suite persists the ledger, restarts `solana-test-validator` with a future `--warp-slot`, and then exercises the real six-hour claim deadline.
+Sprint 6 is complete. The final Linux gate compiled a clean SBF artifact and passed both validator phases: collection/CPI/fork/revocation, followed by an official root snapshot, persisted-ledger restart, future `--warp-slot`, deterministic allocation, real SPL settlement, close, and withdrawal. The program contains no test clock bypass.
 
 ## Implemented protocol behavior
 
@@ -70,18 +70,43 @@ The Rust tests include the official pro-rata example `65000 / 50000`, exact two-
 
 ## SBF and validator evidence
 
-Clean remote run: pending final accepted commit.
+Clean remote run: [GitHub Actions 31728923466](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31728923466), commit `359a9f4ff66080c76cb4c5513e865fcba11c74ec`.
 
 Pinned environment:
 
 ```text
 Ubuntu 24.04
-Rust 1.97.1
-Solana/Agave 3.1.10
-Anchor 1.0.2
+rustc 1.97.1 (8bab26f4f 2026-07-14)
+cargo 1.97.1 (c980f4866 2026-06-30)
+solana-cli 3.1.10 (src:7bc9c805; feat:1620780344, client:Agave)
+anchor-cli 1.0.2
 Node 22.17.0
 pnpm 11.16.0
 ```
+
+SBF evidence:
+
+```text
+artifact size     587232 bytes
+SHA-256           ee0d09b26a9274eb070339a1ae8fd73dfed78801bf8bd4f21ba727d276ffdc67
+unsafe stack grep no matches
+runtime program   3UaWxUgG1dv8cFP6qg3azdG8t43vsUjEa2t1uobsrKqH
+runtime checks    34 PASS
+```
+
+Recorded compute-unit baselines where transaction metadata was available:
+
+| Instruction | Compute units |
+|---|---:|
+| `deposit_collateral` | 20,273 |
+| `submit_claim` | 37,722 |
+| `begin_finalization` | 9,378 |
+| `classify_edge` | 12,421 |
+| `allocate_next_claim` | 18,851 |
+| `settle_claim` | 36,882 |
+| `withdraw_collateral` | 19,819 |
+
+The provider did not return transaction metadata for initialization, pause, profile, vault, and session creation in this run; their runtime behavior still passed. This is an observability limitation, not an unexecuted gate.
 
 Required runtime proofs:
 
@@ -110,7 +135,7 @@ Required runtime proofs:
 | High | Caller account substitution | Allocation/merchant binding | Claim could be paired with an unrelated session edge | Full merchant/amount/sequence/parent/child equality in allocation and settlement | FIXED |
 | High | Early collateral release | Claim-window guarantee | Finalization before grace deadline would reduce reserve | Strict Solana Clock boundary; validator pre-deadline failure | FIXED |
 | High | Settlement redirect/replay | Merchant payout | Relayer could try another token destination or repeat transfer | SPL owner/mint constraints plus claim/edge settled state | FIXED |
-| High | SBF frame overwrite | Runtime memory safety | First SBF run emitted frame-overwrite diagnostics and decoded `254` instead of `25` | Heap-box large account/state values; CI now fails on any stack/undefined-behavior diagnostic | FIXED, FINAL SBF RECHECK REQUIRED |
+| High | SBF frame overwrite | Runtime memory safety | First SBF run emitted frame-overwrite diagnostics and decoded `254` instead of `25` | Heap-box large account/state values; CI fails on any stack/undefined-behavior diagnostic; final SBF build had no matches | FIXED / VERIFIED |
 | Medium | Descendant under-classification | Conflict accounting | Direct fork proof alone does not classify descendants | Frozen fork records plus topological parent conflict propagation | FIXED |
 | Medium | Zero-allocation liveness | Session close | Zero allocation could never call settlement | Zero allocation is finalized as already settled | FIXED |
 | Medium | Incomplete traversal terminal | Completeness | Count could finish with a non-sentinel next pointer after corruption | Completion also requires `next_allocation_claim=default` | FIXED |
@@ -131,14 +156,14 @@ Required runtime proofs:
 | Gate | Result |
 |---|---|
 | Host/conformance suite | PASS |
-| SBF compilation | PENDING clean run |
-| Validator collection/fork/revocation | PENDING clean run |
-| Deadline warp/frozen set | PENDING clean run |
-| Coverage/reserve transition | PENDING clean run |
-| Real SPL settlement CPI | PENDING clean run |
-| Withdrawal safety | PENDING clean run |
+| SBF compilation | PASS |
+| Validator collection/fork/revocation | PASS |
+| Deadline warp/frozen set | PASS |
+| Coverage/reserve transition | PASS |
+| Real SPL settlement CPI | PASS |
+| Withdrawal safety | PASS |
 | Hostile audit | PASS with documented open risks |
 
 ## Decision
 
-`PENDING — DO NOT START SPRINT 7` until every remote runtime gate above is green on the final audited commit.
+`PASS — SPRINT 6 COMPLETE.` The Prompt Master acceptance criteria are satisfied, including the on-chain rule that a confirmed conflict revokes offline access and makes a new session fail. Sprint 7 remains not started pending user review.
