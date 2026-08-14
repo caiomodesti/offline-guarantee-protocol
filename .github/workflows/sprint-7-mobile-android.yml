@@ -56,26 +56,34 @@ jobs:
       - name: Generate Android native project
         run: corepack pnpm --filter "${{ matrix.app }}" exec expo prebuild --platform android --no-install --clean
 
-      # This release variant embeds the Expo/React Native bundle and assets. It
-      # deliberately uses the generated debug keystore for physical MVP testing;
-      # it is a standalone preview artifact, not a production-signed release.
-      - name: Compile standalone preview APK
+      # Physical phones use arm64. Limiting the preview artifact to this ABI
+      # avoids a ~144 MB universal APK containing emulator and legacy binaries.
+      # The release remains debug-key signed and is not a production release.
+      - name: Compile arm64 standalone preview APK
         working-directory: apps/${{ matrix.app }}/android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
 
-      - name: Verify embedded JavaScript bundle and calculate SHA-256
+      - name: Verify signature, manifest, ABI, embedded bundle and SHA-256
         shell: bash
         run: |
           set -euo pipefail
           apk="$(find "apps/${{ matrix.app }}/android/app/build/outputs/apk/release" -maxdepth 1 -name '*.apk' -print -quit)"
           test -n "$apk"
+          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk"
+          "$build_tools/aapt" dump badging "$apk" | grep -E "^(package:|sdkVersion:|targetSdkVersion:|native-code:)"
           unzip -l "$apk" | grep -E 'assets/(index\.android\.bundle|_expo/static/js/android/.+\.js)'
+          unzip -l "$apk" | grep -q 'lib/arm64-v8a/'
+          if unzip -l "$apk" | grep -Eq 'lib/(armeabi-v7a|x86|x86_64)/'; then
+            echo 'Unexpected non-arm64 native library in physical-device APK' >&2
+            exit 1
+          fi
           sha256sum "$apk" | tee "${apk}.sha256"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: sprint-7-${{ matrix.app }}-android-standalone-preview
+          name: sprint-7-${{ matrix.app }}-android-arm64-standalone-preview
           if-no-files-found: error
           path: |
             apps/${{ matrix.app }}/android/app/build/outputs/apk/release/*.apk

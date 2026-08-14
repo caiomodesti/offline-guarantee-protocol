@@ -149,6 +149,17 @@ Corrective [GitHub Actions run 31768054067](https://github.com/caiomodesti/offli
 
 Both jobs installed the pinned workspace, passed protocol and mobile typechecks, generated clean native projects, compiled `assembleRelease`, verified the embedded bundle from inside the APK, generated the digest, and uploaded the artifact. The next and only Sprint 7 gate is the [two-device airplane-mode test](sprint-7-device-test.md).
 
+### Compact physical-device artifacts
+
+The first universal standalone APKs were valid but approximately 144 MB each because they contained four ABIs, including emulator architectures. After Android returned the generic `App not installed` message on a physical device, run [31842955479](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31842955479) produced compact `arm64-v8a` artifacts and added explicit `apksigner` and `aapt` gates.
+
+| App | Artifact | Workflow archive | APK SHA-256 |
+|---|---|---:|---|
+| Merchant | `sprint-7-merchant-mobile-android-arm64-standalone-preview` | 26,110,734 bytes | `949c506abdc3d20d2f420005b24f39366fc0564f7cdc9bcee982bec5bd78a00c` |
+| Payer | `sprint-7-payer-mobile-android-arm64-standalone-preview` | 26,110,691 bytes | `9b978ea3144104ea4cb2572cf5fbfd012c9182300cfcca35ae4c6e6557d1e8bb` |
+
+Both APKs pass Android Signature Scheme v2 verification, contain only `arm64-v8a` native code, embed their JavaScript bundle, declare minimum SDK 24, target SDK 36, and remain debug-key-signed non-production previews.
+
 ## Hostile audit
 
 ### Findings fixed
