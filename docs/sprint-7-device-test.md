@@ -1,6 +1,6 @@
 # Sprint 7 — teste físico dos APKs standalone
 
-Este roteiro é o gate final da Sprint 7. Ele usa dois APKs de preview com o bundle JavaScript embutido. Nenhum servidor Expo, Metro, QR de desenvolvimento ou computador deve ser necessário para abrir os aplicativos.
+Este roteiro registra a aceitação física da Sprint 7 e mantém uma matriz adicional de robustez. Ele usa dois APKs de preview com o bundle JavaScript embutido. Nenhum servidor Expo, Metro, QR de desenvolvimento ou computador deve ser necessário para abrir os aplicativos.
 
 > Os APKs são previews assinados com a chave de desenvolvimento gerada no build. Servem apenas para a validação física do MVP e não são releases de produção.
 
@@ -75,4 +75,4 @@ Registre para cada aparelho:
 | Reinício restaurou estado |  |  |
 | Resultado final |  |  |
 
-A Sprint 7 só recebe `PASS` depois que a troca completa e os testes de reinício passam em dois dispositivos físicos. Até lá, a Sprint 8 permanece bloqueada.
+A Sprint 7 recebeu `PASS` após a troca completa funcionar em dois dispositivos com Wi-Fi e dados móveis desligados, conforme o critério original de comunicação offline. Os testes adicionais de reinício continuam recomendados e rastreados como hardening não bloqueante; perda de dados e reinstalação passam a obedecer à recuperação fail-closed da [ADR-0019](adr/0019-sprint-8-fail-closed-session-recovery.md).

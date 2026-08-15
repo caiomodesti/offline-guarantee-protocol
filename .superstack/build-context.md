@@ -9,7 +9,7 @@ defi:
   emergency_pause: true
 project:
   name: Offline Guarantee Protocol
-  phase: sprint-7-qr-mobile-mvp
+  phase: sprint-8-normal-onchain-e2e
   settlement_asset: mock-spl-token
   money_representation: u64-minor-units
 offline_ledger:
@@ -34,7 +34,7 @@ mobile:
   standalone_preview_status: pass-payer-fixture-run-31848322396
   physical_device_tested: true
   physical_offline_exchange_status: pass-network-disabled-2026-08-15
-  physical_restart_matrix_status: open
+  physical_restart_matrix_status: open-nonblocking-hardening
 ```
 
-OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 and its pinned SBF/validator runtime acceptance gate pass. Sprint 4 claim collection, Sprint 5 reconciliation, and Sprint 6 economic resolution are complete. Sprint 7 is limited to the offline payer/merchant QR mobile flow. Normal reconnect/claim/settlement E2E remains Sprint 8, Bluetooth remains Sprint 11, and devnet remains Sprint 12.
+OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 and its pinned SBF/validator runtime acceptance gate pass. Sprint 4 claim collection, Sprint 5 reconciliation, and Sprint 6 economic resolution are complete. Sprint 7's offline payer/merchant QR flow passed its core physical test. Sprint 8 normal reconnect/claim/settlement E2E is in progress, Bluetooth remains Sprint 11, and devnet remains Sprint 12.

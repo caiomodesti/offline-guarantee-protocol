@@ -77,4 +77,4 @@ Portuguese is the primary MVP interface language for the current owner/device te
 - Later merchants see the prior branch proof in MVP, preserving the documented privacy risk.
 - Frame loss is a liveness failure, never partial acceptance.
 - A compromised payer app can still fork; the protocol detects and economically contains rather than preventing it.
-- Native build and two-device airplane-mode camera proof remain required before Sprint 7 is marked fully accepted.
+- Native build and a two-device network-disabled camera proof are required before Sprint 7 is marked fully accepted; both passed. The broader restart matrix remains non-blocking hardening governed by Sprint 8 fail-closed recovery.

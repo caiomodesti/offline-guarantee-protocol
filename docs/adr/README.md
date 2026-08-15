@@ -20,5 +20,6 @@
 | [0016](0016-sprint-5-deterministic-reconciliation.md) | Sprint 5 deterministic reconciliation boundary | Accepted for MVP |
 | [0017](0017-sprint-6-economic-resolution.md) | Sprint 6 verified finalization, coverage, SPL settlement, and withdrawal reserve | Accepted for MVP |
 | [0018](0018-sprint-7-qr-mobile-flow.md) | Fragmented offline QR payer/merchant flow and local durability | Accepted for MVP |
+| [0019](0019-sprint-8-fail-closed-session-recovery.md) | Fail-closed recovery after payer data/key loss | Accepted for Sprint 8 |
 
 “Accepted for MVP design” does not authorize implementation before the relevant sprint.

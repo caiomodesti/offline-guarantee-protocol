@@ -126,6 +126,9 @@ importers:
       '@ogp/credentials':
         specifier: workspace:*
         version: link:../../packages/credentials
+      '@ogp/protocol-sdk':
+        specifier: workspace:*
+        version: link:../../packages/protocol-sdk
       '@ogp/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
