@@ -941,6 +941,7 @@ const normalSessionResult = await createSession(
   (await chainNow()) + 3600,
   normalDevicePublic,
 );
+await connection.confirmTransaction(normalSessionResult.signature, "confirmed");
 const normalSession = normalSessionResult.session;
 let normalSessionState = await program.account.offlineSession.fetch(normalSession, "confirmed");
 const normalTrustContext: ProtocolTrustContext = {
