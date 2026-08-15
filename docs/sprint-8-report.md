@@ -57,9 +57,12 @@ The validator suite now contains a dedicated non-conflicted Sprint 8 path:
 5. the production merchant verifier accepts the exact bundle;
 6. the SDK passes that same credential to `submit_claim` with native Ed25519 verification;
 7. after the authoritative claim deadline, the runtime freezes and allocates the single 50-unit edge;
-8. `settle_claim` transfers 50 SPL units to the merchant through PDA-signed `transfer_checked` and closes the session without the payer key.
+8. `settle_claim` transfers 50 SPL units to the merchant through PDA-signed `transfer_checked` and moves the normal session to `Settled` without the payer key;
+9. permissionless `close_session` then moves it to `Closed`, clears `profile.active_session`, and increments `successful_sessions` without the payer key.
 
-Host compilation and unit/conformance tests pass. SBF/validator execution of this new path is **PENDING RUNTIME CI** and must pass before Increment 8.2 is accepted.
+Increment 8.2 is **PASS** in [GitHub Actions run 31901840994](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31901840994). The run rebuilt the program for SBF from a clean pinned environment, executed the existing runtime suite, persisted and warped the ledger beyond the real claim deadline, and completed the normal claim, allocation, SPL settlement, and explicit session close.
+
+The first runtime attempt exposed a real confirmation race: `.rpc()` had returned, but the newly created session was not yet observable at `confirmed` commitment when portable authorization material was about to be produced. Provisioning now waits for `confirmTransaction(..., "confirmed")` and then fetches the session at `confirmed`. This is a security boundary, not merely a test delay: offline authority must never be derived from a transaction known only at `processed` commitment.
 
 ## Automated evidence
 
@@ -70,7 +73,14 @@ Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
 Independent Rust conformance       1 PASS
 Solana program Rust tests         16 PASS
+Real SBF build                     PASS (587,232 bytes)
+Validator/runtime assertions       37 PASS
+Sprint 8 claim submit compute      39,222 CU
+Sprint 8 SPL settlement compute    36,890 CU
+Sprint 8 session close compute      9,304 CU
 ```
+
+Pinned runtime environment: Rust/Cargo 1.97.1, Agave/Solana CLI 3.1.10, Anchor CLI 1.0.2, Node 22.17.0, pnpm 11.16.0. The SBF artifact SHA-256 is `d567c541c21e2e2d543e81d75bc8f27693d1573e50a3df85344ed1bc5b5acde3` for program `7BDWpBB9tvPfk1FBFP6kCen9UECWxa1t5VReu2Q3ybKf` in that ephemeral CI environment.
 
 No APK was generated for this increment, as requested. The physically installed Sprint 7 apps therefore do not yet contain the new recovery gate.
 
@@ -87,17 +97,29 @@ No APK was generated for this increment, as requested. The physically installed 
 | Medium | Standard MWA wallet versus local validator | Wallet-authorized Sprint 8 provisioning | MWA 2.0 officially defines mainnet/testnet/devnet chain identifiers, not localnet | Keep chronology: validator E2E uses an injected signer boundary; compile/test the MWA adapter; reserve public devnet proof for Sprint 12 | OPEN RISK |
 | Low | Account layout drift | Recovery decoder correctness | Manual fixed offsets can drift after Rust changes | Frozen sizes/discriminators and decoder tests; runtime fixtures remain final proof | MITIGATED |
 
-No claims, fork detection, settlement, withdrawal, Bluetooth, dashboard, or devnet behavior was added or reordered by this increment.
+## Hostile audit — increment 8.2
+
+| Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
+|---|---|---|---|---|---|
+| High | Intermittent RPC/commitment race | No offline authority may be provisioned from an unconfirmed session | Run 31901217195 returned from `.rpc()` before the account was observable at `confirmed` | Explicitly confirm the session transaction and fetch authoritative facts at `confirmed` before signing authorization/certificate material | CLOSED; run 31901840994 PASS |
+| High | Easy application serialization mistake | Merchant-verified bytes must be the bytes admitted on-chain | The mobile/runtime boundary previously required callers to assemble claim arguments themselves | `createClaimSubmissionMaterial` derives the exact 410-byte payload, copied 64-byte signature, and credential hash from the verified credential and rejects layout drift | CLOSED IN SDK + RUNTIME |
+| High | Payer disappears permanently after paying offline | Merchant settlement must not depend on payer reconnection or signature | Phase two runs after persisted-ledger restart and contains neither payer owner signer nor payer device key | Any funded relayer can call claim/finalization; vault PDA signs `transfer_checked`; `close_session` is permissionless after complete settlement | CLOSED IN RUNTIME; MOBILE RELAYER WIRING PENDING |
+| High | Incorrect client interpretation of status | Collateral/profile release must follow the on-chain lifecycle | Run 31901217195 showed allocation ends in `Reconciling`, not `Settled` | Runtime test now proves `Reconciling -> Settled -> Closed` and verifies reserve, balances, active session, and success counter at each required boundary | CLOSED |
+| Medium | Signer or merchant substitution | Only the credential's merchant may receive its allocation | Existing runtime suite rejects wrong destination, signature mutation, instruction-index substitution, and exact replay | Native Ed25519 instruction introspection plus credential/claim/merchant account constraints | CLOSED IN RUNTIME |
+| Medium | Rooted device restores an old protected snapshot | A single device branch should be monotonic | Runtime normal path cannot prove Android anti-rollback guarantees | Economic caps and authenticated fork handling bound/resolve exposure; physical rollback attack remains scheduled for Sprint 9 | OPEN RISK |
+| Medium | Standard MWA cannot name localnet | Physical wallet-authorized local-validator provisioning | Official MWA chain identifiers omit localnet | Keep injected signer as the local runtime proof; use real MWA only on supported public cluster in Sprint 12 | OPEN RISK; CHRONOLOGY UNCHANGED |
+| Medium | CI fixture leakage | Test owner key must never become an application custody pattern | The pre-existing two-phase runtime harness serializes an ephemeral owner key under `target/` so it can continue after validator restart | `target/` is gitignored; the fixture is not uploaded in the runtime artifact or logged; production mobile code remains MWA-only and stores no wallet key | TEST-ONLY; VERIFY ARTIFACT ALLOWLIST CONTINUOUSLY |
+| Low | GitHub Actions moves off Node 20 action runtime | Evidence pipeline availability | Run emitted the upstream actions Node 20 deprecation warning while succeeding under forced Node 24 | Upgrade official action majors when stable; no protocol or artifact effect today | OPEN MAINTENANCE |
+
+No program instruction, economic policy, fork behavior, Bluetooth, dashboard, or devnet behavior was added or reordered by this increment. The tests exercise already authorized claim/finalization/settlement functionality to prove the original Sprint 8 normal path.
 
 ## Remaining acceptance gates
 
-- injected wallet-signer local-validator deposit and session creation, plus compiled MWA boundary without claiming unsupported localnet wallet transport;
-- fresh device key and portable authorization bound to the confirmed session;
-- merchant reconnect and real claim submission;
-- finalization and real SPL settlement;
-- payer absence must not block merchant claim/settlement;
-- clear-data/reinstall must not create new exposure while the old session exists;
-- complete automated suite and hostile audit;
-- reproducible commands and evidence.
+- replace the payer app's labeled Sprint 7 fixture with the production online recovery/provisioning controller;
+- connect the compiled MWA boundary on a supported cluster without storing wallet keys in the app;
+- connect the merchant's durable local claim queue to an idempotent reconnect/relayer submission path;
+- surface authoritative claim, settlement, and session-close states in Portuguese in both apps;
+- physically test clear-data/reinstall against authoritative active-session state so it cannot create new exposure;
+- run the complete two-phone normal path again after those app integrations.
 
-Sprint 8 is not complete until the whole normal path above executes against the Solana runtime. No Sprint 9 functionality is authorized yet.
+The protocol/runtime half of the normal Sprint 8 path is accepted. Sprint 8 remains **IN PROGRESS** until the installed applications use this production path instead of the Sprint 7 fixture. No Sprint 9 functionality is authorized yet.

@@ -17,7 +17,7 @@ The production/on-chain path fails closed:
 1. an offline-ready session requires a complete locally verified provisioning record, the matching per-session device key in protected storage, and the persisted authenticated branch state;
 2. missing, malformed, or mutually inconsistent local components disable offline payment immediately;
 3. clearing data or reinstalling never recreates a session, fixture, device key, branch balance, or collateral entitlement automatically;
-4. recovery requires connectivity, a confirmed read of the authoritative profile/session accounts, and a fresh wallet signature;
+4. recovery requires connectivity, a confirmed read of the authoritative profile/session accounts, and a fresh wallet signature. For a newly created session, the creation transaction MUST reach `confirmed` commitment and the program-owned session MUST be refetched at `confirmed` before any offline authorization or certificate material is produced;
 5. if `profile.active_session` identifies a non-terminal prior session, the app MUST NOT issue new offline exposure. It must recover the matching local authorization where safely possible or guide the user through the protocol's existing finalization/closure lifecycle;
 6. claims already held by merchants remain valid and payable according to the claim window and coverage policy even when the payer never reconnects;
 7. a new session may be provisioned only after the authoritative profile has no active session and the wallet explicitly authorizes the new lifecycle;
