@@ -369,7 +369,7 @@ const normalAllocatedSession = await program.account.offlineSession.fetch(normal
 const normalAllocatedClaim = decodeClaim(await fetchRaw(normalClaim));
 const normalAllocatedEdge = decodeStateEdgeRecord(await fetchRaw(normalEdge));
 const normalReservedVault = await program.account.collateralVault.fetch(normalVault);
-assert("settled" in normalAllocatedSession.status);
+assert("reconciling" in normalAllocatedSession.status);
 assert("fullyCovered" in normalAllocatedSession.coverageStatus);
 assert.equal(normalAllocatedSession.authenticatedFork, false);
 assert.equal(asNumber(normalAllocatedSession.frozenExposure), 50);
@@ -398,6 +398,15 @@ const normalSettlementSignature = await program.methods
   .rpc();
 await confirmSignature(normalSettlementSignature);
 await recordCompute("sprint_8_settle_claim", normalSettlementSignature);
+const normalSettledSession = await program.account.offlineSession.fetch(normalSession);
+assert("settled" in normalSettledSession.status);
+assert.equal(asNumber(normalSettledSession.settledAmount), 50);
+const normalCloseSignature = await program.methods
+  .closeSession()
+  .accounts({ session: normalSession, profile: normalProfile })
+  .rpc();
+await confirmSignature(normalCloseSignature);
+await recordCompute("sprint_8_close_session", normalCloseSignature);
 const normalClosedSession = await program.account.offlineSession.fetch(normalSession);
 const normalRecoveredProfile = await program.account.userProfile.fetch(normalProfile);
 const normalSettledVault = await program.account.collateralVault.fetch(normalVault);
@@ -411,7 +420,7 @@ assert.equal(asNumber(normalSettledVault.depositedAmount), 250);
 assert.equal(asNumber(normalSettledVault.reservedAmount), 0);
 assert.equal(asNumber(normalSettledVault.settledFromCollateral), 50);
 assert.equal((await getAccount(connection, normalVaultToken)).amount, 250n);
-pass("Sprint 8 payer-independent SPL settlement", "merchant receives 50 through PDA transfer_checked and the non-conflicted session closes without the payer key or payer reconnection");
+pass("Sprint 8 payer-independent SPL settlement", "merchant receives 50 through PDA transfer_checked; permissionless close_session then closes the non-conflicted session without the payer key or payer reconnection");
 
 const insolventSession = key(fixture.insolvency.session);
 const insolventProfile = key(fixture.insolvency.profile);
