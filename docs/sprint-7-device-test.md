@@ -16,8 +16,8 @@ Este roteiro é o gate final da Sprint 7. Ele usa dois APKs de preview com o bun
 Resultado mínimo ao abrir:
 
 ```text
-payer-mobile     → Pagar sem internet
-merchant-mobile  → Receber offline
+OGP Pagador     → Pagar sem internet
+OGP Lojista     → Receber sem internet
 ```
 
 Se aparecer a tela de development server do Expo, o artifact instalado está errado e o gate falhou.
@@ -33,32 +33,34 @@ Ambos devem chegar às respectivas telas iniciais sem computador, Metro ou rede.
 
 ## 3. Troca QR offline completa
 
-1. No merchant, informe um valor inteiro e toque em `CRIAR CHALLENGE`.
-2. No payer, toque em `PAGAR OFFLINE` e escaneie o QR do merchant.
+1. No lojista, informe um valor inteiro e toque em `CRIAR PEDIDO`.
+2. No pagador, toque em `PAGAR SEM INTERNET` e escaneie o QR do lojista.
 3. Confira os dados e toque em `AUTORIZAR`.
-4. No merchant, toque em `RECEBER PROVA` e escaneie todos os frames animados exibidos pelo payer.
-5. O merchant só pode aceitar depois de persistir e verificar a evidência completa.
-6. Confirme no merchant:
+4. No lojista, toque em `RECEBER PROVA` e escaneie todos os quadros animados exibidos pelo pagador.
+5. O lojista só pode aceitar depois de persistir e verificar a evidência completa.
+6. Confirme no lojista:
 
 ```text
-Session verified
-Signature valid
-Credential integrity
-Guarantee present
-Pending settlement
+Sessão verificada
+Assinatura válida
+Credencial íntegra
+Garantia presente
+Liquidação pendente
 ```
 
-7. No merchant, toque em `MOSTRAR CONFIRMAÇÃO`.
-8. No payer, toque em `ESCANEAR CONFIRMAÇÃO` e escaneie o QR de retorno.
-9. Confirme no payer a mensagem `Merchant armazenou a prova`.
+7. No lojista, toque em `MOSTRAR CONFIRMAÇÃO`.
+8. No pagador, toque em `ESCANEAR CONFIRMAÇÃO` e escaneie o QR de retorno.
+9. Confirme no pagador a mensagem `O lojista armazenou a prova`.
 
 ## 4. Persistência e reinício
 
 Ainda em modo avião:
 
-1. encerre e reabra o payer enquanto houver uma prova ainda não confirmada; ele deve restaurar a ponta da branch e a entrega pendente;
-2. encerre e reabra o merchant depois de criar o challenge; ele deve restaurar o challenge pendente;
-3. conclua uma aceitação, encerre e reabra o merchant; a evidência aceita não pode desaparecer silenciosamente.
+1. encerre e reabra o pagador enquanto houver uma prova ainda não confirmada; ele deve restaurar a ponta da branch e a entrega pendente;
+2. encerre e reabra o lojista depois de criar o pedido; ele deve restaurar o pedido pendente;
+3. conclua uma aceitação, encerre e reabra o lojista; a evidência aceita não pode desaparecer silenciosamente;
+4. abra o cartão de provas armazenadas e confirme que cada prova possui detalhes próprios;
+5. se houver duas provas com mesma sessão, mesmo estado anterior e mesma sequência, mas estados resultantes distintos, a interface pode mostrar apenas `Possível conflito local`. A confirmação protocolar depende da reconciliação on-chain.
 
 ## 5. Registro do resultado
 

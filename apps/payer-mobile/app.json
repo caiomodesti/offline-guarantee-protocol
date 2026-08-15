@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "OGP Payer",
+    "name": "OGP Pagador",
     "slug": "ogp-payer",
     "scheme": "ogp-payer",
     "version": "0.1.0",
@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "plugins": [
       "expo-dev-client",
-      ["expo-camera", { "cameraPermission": "Permitir que o OGP Payer leia os QR codes de pagamento.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }],
+      ["expo-camera", { "cameraPermission": "Permitir que o OGP Pagador leia os códigos QR de pagamento.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }],
       ["expo-secure-store", { "configureAndroidBackup": true }]
     ],
     "ios": {

@@ -256,7 +256,8 @@ See the complete [demo contract](docs/demo-script.md).
 | Fork reconciliation | Validator-backed deterministic evidence | **PASS** |
 | Allocation, settlement, revocation and withdrawal | Real SPL runtime execution | **PASS** |
 | QR payer / merchant source and native APKs | Host suite, Metro bundles and Android CI | **PASS** |
-| Two-device airplane-mode camera flow | Physical device matrix | **OPEN GATE** |
+| Two-device network-disabled camera flow | Owner-observed physical exchange | **PASS** |
+| SecureStore and restart matrix | Physical device matrix | **OPEN GATE** |
 | Normal reconnect → claim → settlement E2E | Sprint 8 | **NOT STARTED** |
 | Devnet deployment | Sprint 12 | **NOT STARTED** |
 
@@ -272,7 +273,7 @@ SPRINT 8 BLOCKED
 ### Verified baselines
 
 ```text
-TypeScript / Vitest            41 tests passing across 5 files
+TypeScript / Vitest            47 tests passing across 7 files
 QR adversarial tests            7 passing
 Golden vectors                  6 passing
 Rust canonical conformance      1 passing

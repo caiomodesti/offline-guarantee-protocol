@@ -56,6 +56,12 @@ The Sprint 7 payer contains an explicitly development-only pre-signed session fi
 
 The QR receipt proves only that the merchant app acknowledged the exact credential hash and challenge. It is unsigned and has no coverage, settlement, ordering, or on-chain authority. Merchant receipt signatures remain deferred.
 
+The merchant history distinguishes only locally observable facts: proof verified and stored, receipt not shown/shown/unknown for legacy records, and settlement pending. Showing a receipt does not prove that the payer scanned it. Adding a third payer-to-merchant acknowledgement would change the transport flow and is not part of Sprint 7.
+
+Stored proof bundles are revalidated from their canonical QR frames before the history calls them verified. Metadata in AsyncStorage is not trusted by itself. All edges in every complete stored bundle may then be compared to produce a **possible local conflict** warning under the formal sibling predicate: same session, parent state hash, and sequence with different resulting state hashes. This warning is provisional. It MUST NOT use the protocol headline `FORK DETECTED`, revoke access, change coverage, or imply on-chain confirmation before Sprint 8/9 submits and verifies the evidence through the program.
+
+Portuguese is the primary MVP interface language for the current owner/device testing. English localization is presentation work and does not change signed protocol bytes, schemas, status enums, or the immutable sprint chronology.
+
 ## Rejected alternatives
 
 - Single static QR: fails as branch proof size grows.

@@ -32,7 +32,9 @@ mobile:
   wallet_method: mwa-planned-for-sprint-8
   qr_transport: fragmented-hash-bound
   standalone_preview_status: pass-payer-fixture-run-31848322396
-  physical_device_tested: false
+  physical_device_tested: true
+  physical_offline_exchange_status: pass-network-disabled-2026-08-15
+  physical_restart_matrix_status: open
 ```
 
 OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 and its pinned SBF/validator runtime acceptance gate pass. Sprint 4 claim collection, Sprint 5 reconciliation, and Sprint 6 economic resolution are complete. Sprint 7 is limited to the offline payer/merchant QR mobile flow. Normal reconnect/claim/settlement E2E remains Sprint 8, Bluetooth remains Sprint 11, and devnet remains Sprint 12.
