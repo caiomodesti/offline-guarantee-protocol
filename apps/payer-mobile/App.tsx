@@ -8,14 +8,7 @@ import QRCode from "react-native-qrcode-svg";
 import { createPaymentCredential, credentialHash, validateCredentialProofBundle, type ParentState } from "@ogp/credentials";
 import { OgpValidationError, equalBytes, type PaymentCredential } from "@ogp/shared-types";
 import { QRTransport, assertChallengeEnvironment, type MerchantChallenge, type TransportReceipt } from "@ogp/transports";
-import {
-  deviceAuthorization,
-  deviceSecretHex,
-  hexToBytes,
-  initialParent,
-  sessionCertificate,
-  trustContext,
-} from "./src/dev-session";
+import { hexToBytes, loadDevelopmentSession, type DevelopmentSession } from "./src/dev-session";
 
 const transport = new QRTransport();
 const DEVICE_KEY_STORAGE = "ogp.session.c3.device-key";
@@ -58,9 +51,10 @@ function Action({ label, onPress, secondary = false, disabled = false }: { label
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
+  const [developmentSession, setDevelopmentSession] = useState<DevelopmentSession | null>(null);
   const [challenge, setChallenge] = useState<MerchantChallenge | null>(null);
   const [credentials, setCredentials] = useState<PaymentCredential[]>([]);
-  const [parent, setParent] = useState<ParentState>(initialParent);
+  const [parent, setParent] = useState<ParentState | null>(null);
   const [outgoingFrames, setOutgoingFrames] = useState<readonly string[]>([]);
   const [lastCredential, setLastCredential] = useState<PaymentCredential | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,25 +63,29 @@ export default function App() {
 
   useEffect(() => {
     void (async () => {
+      const runtime = loadDevelopmentSession();
       const existing = await SecureStore.getItemAsync(DEVICE_KEY_STORAGE);
       if (existing === null) {
-        await SecureStore.setItemAsync(DEVICE_KEY_STORAGE, deviceSecretHex, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY });
+        await SecureStore.setItemAsync(DEVICE_KEY_STORAGE, runtime.deviceSecretHex, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY });
       }
+      let restoredParent = runtime.initialParent;
       const stored = await AsyncStorage.getItem(SESSION_STATE_STORAGE);
       if (stored !== null) {
         const state = JSON.parse(stored) as StoredSessionState;
         const bundle = transport.receiveCredential(state.frames);
-        const finalState = validateCredentialProofBundle(trustContext, bundle);
+        const finalState = validateCredentialProofBundle(runtime.trustContext, bundle);
         const restoredCredentials = [...bundle.credentials];
         const restoredLast = restoredCredentials.at(-1) ?? null;
         setCredentials(restoredCredentials);
-        setParent(finalState);
+        restoredParent = finalState;
         setLastCredential(restoredLast);
         if (state.pendingDelivery && restoredLast !== null) {
           setOutgoingFrames(state.frames);
           setScreen("show-credential");
         }
       }
+      setDevelopmentSession(runtime);
+      setParent(restoredParent);
       setHydrated(true);
     })().catch((reason: unknown) => { setError(errorText(reason)); setHydrated(true); });
   }, []);
@@ -101,9 +99,10 @@ export default function App() {
   const scanChallenge = (frame: string) => {
     receivedFrames.current.add(frame);
     try {
+      if (developmentSession === null || parent === null) throw new Error("Sessão de desenvolvimento indisponível");
       const decoded = transport.receiveChallenge(receivedFrames.current);
-      assertChallengeEnvironment(decoded, trustContext);
-      if (equalBytes(decoded.merchant, sessionCertificate.owner)) throw new OgpValidationError("SELF_MERCHANT_FORBIDDEN", "payer cannot pay itself");
+      assertChallengeEnvironment(decoded, developmentSession.trustContext);
+      if (equalBytes(decoded.merchant, developmentSession.sessionCertificate.owner)) throw new OgpValidationError("SELF_MERCHANT_FORBIDDEN", "payer cannot pay itself");
       if (decoded.amount > parent.remaining) throw new OgpValidationError("INVALID_AMOUNT", "amount exceeds offline available");
       setChallenge(decoded);
       setScreen("confirm");
@@ -113,13 +112,13 @@ export default function App() {
   };
 
   const authorizePayment = async () => {
-    if (challenge === null) return;
+    if (challenge === null || developmentSession === null || parent === null) return;
     try {
       const storedSecret = await SecureStore.getItemAsync(DEVICE_KEY_STORAGE);
       if (storedSecret === null) throw new Error("Chave da sessão indisponível");
       const credential = createPaymentCredential(
-        trustContext,
-        sessionCertificate,
+        developmentSession.trustContext,
+        developmentSession.sessionCertificate,
         parent,
         {
           merchant: challenge.merchant,
@@ -127,12 +126,12 @@ export default function App() {
           amount: challenge.amount,
           merchantChallenge: challenge.challenge,
           // Metadata only. It is never used to order competing branches.
-          createdAt: sessionCertificate.issuedAt + BigInt(parent.sequence + 1),
+          createdAt: developmentSession.sessionCertificate.issuedAt + BigInt(parent.sequence + 1),
         },
         hexToBytes(storedSecret),
       );
       const nextCredentials = [...credentials, credential];
-      const frames = transport.sendCredential({ sessionCertificate, deviceAuthorization, credentials: nextCredentials });
+      const frames = transport.sendCredential({ sessionCertificate: developmentSession.sessionCertificate, deviceAuthorization: developmentSession.deviceAuthorization, credentials: nextCredentials });
       await AsyncStorage.setItem(SESSION_STATE_STORAGE, JSON.stringify({ frames, pendingDelivery: true } satisfies StoredSessionState));
       setCredentials(nextCredentials);
       setLastCredential(credential);
@@ -163,6 +162,9 @@ export default function App() {
   if (screen === "scan-challenge") return <Scanner title="Escaneie o pedido do merchant" onCode={scanChallenge} onCancel={() => setScreen("home")} />;
   if (screen === "scan-receipt") return <Scanner title="Escaneie a confirmação do merchant" onCode={scanReceipt} onCancel={() => setScreen("show-credential")} />;
 
+  if (!hydrated) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Preparando payer…</Text><Text style={styles.body}>Validando a sessão local protegida.</Text></View></SafeAreaView>;
+  if (developmentSession === null || parent === null) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Falha ao iniciar o payer</Text><Text style={styles.body}>{error ?? "Bootstrap indisponível"}</Text></View></SafeAreaView>;
+
   return <SafeAreaView style={styles.safe}><StatusBar style="dark" /><ScrollView contentContainerStyle={styles.container}>
     <Text style={styles.eyebrow}>OFFLINE GUARANTEE</Text>
     <Text style={styles.title}>{screen === "home" ? "Pagar sem internet" : screen === "confirm" ? "Confirmar pagamento" : screen === "show-credential" ? "Mostre ao merchant" : "Pagamento recebido"}</Text>
@@ -170,7 +172,7 @@ export default function App() {
 
     {screen === "home" && <>
       <View style={styles.balance}><Text style={styles.balanceLabel}>Offline disponível</Text><Text style={styles.balanceValue}>{parent.remaining.toString()}</Text><Text style={styles.balanceUnit}>unidades do token de liquidação</Text></View>
-      <View style={styles.row}><View style={styles.stat}><Text style={styles.statLabel}>Collateral</Text><Text style={styles.statValue}>{sessionCertificate.collateralLocked.toString()}</Text></View><View style={styles.stat}><Text style={styles.statLabel}>Sessão</Text><Text style={styles.statValue}>Pronta</Text></View></View>
+      <View style={styles.row}><View style={styles.stat}><Text style={styles.statLabel}>Collateral</Text><Text style={styles.statValue}>{developmentSession.sessionCertificate.collateralLocked.toString()}</Text></View><View style={styles.stat}><Text style={styles.statLabel}>Sessão</Text><Text style={styles.statValue}>Pronta</Text></View></View>
       <Action label={hydrated ? "PAGAR OFFLINE" : "CARREGANDO ESTADO…"} disabled={!hydrated} onPress={() => startScan("scan-challenge")} />
       <Text style={styles.footnote}>Fixture local da Sprint 7. A ativação on-chain e MWA entram no E2E da Sprint 8.</Text>
       <Text style={styles.history}>{credentials.length} pagamento(s) no histórico local</Text>

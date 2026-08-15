@@ -160,6 +160,20 @@ The first universal standalone APKs were valid but approximately 144 MB each bec
 
 Both APKs pass Android Signature Scheme v2 verification, contain only `arm64-v8a` native code, embed their JavaScript bundle, declare minimum SDK 24, target SDK 36, and remain debug-key-signed non-production previews.
 
+### Payer bootstrap fixture correction
+
+Physical startup of the compact payer exposed `INVALID_LENGTH: expected exactly 554 bytes`. The protocol decoder was correctly failing closed: the development certificate fixture embedded in the payer contained 550 bytes because four `0xc3` bytes were missing from the fixture session ID at byte offset 138. The 370-byte authorization fixture was complete.
+
+The payer now reconstructs the canonical 554-byte certificate before decoding, performs bootstrap inside a caught runtime path, and renders an explicit startup error instead of terminating the app. A dedicated regression test verifies the encoded certificate length, the certificate/device-key binding, the complete authorization and certificate chain, and the initial branch balance.
+
+Final corrective [GitHub Actions run 31848322396](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31848322396), commit `a44cbeb1ca8ac721f030d714dcb09f9ad5c91d03`: **PASS**.
+
+| App | Artifact | Workflow archive | Embedded bundle | APK SHA-256 |
+|---|---|---:|---:|---|
+| Payer | `sprint-7-payer-mobile-android-arm64-standalone-preview` | 26,111,621 bytes | `assets/index.android.bundle`, 2,432,944 bytes | `77a666074f8390740ee1af00e7a53a67bad160ba9cd9ee9036d75c6181ef266b` |
+
+The run passed 42 TypeScript tests across six files, including the new payer bootstrap regression test. The APK passed Android Signature Scheme v2 verification, declares minimum SDK 24 and target SDK 36, and contains only `arm64-v8a` native code. Earlier payer artifacts are obsolete; the merchant APK did not contain this fixture defect and does not need replacement.
+
 ## Hostile audit
 
 ### Findings fixed
@@ -199,6 +213,7 @@ Both APKs pass Android Signature Scheme v2 verification, contain only `arm64-v8a
 | Android Metro bundles | PASS |
 | Native Android development-client compile | PASS — both apps, run 31763513716 |
 | Standalone preview APK + embedded bundle | PASS — both apps, run 31768054067 |
+| Canonical payer bootstrap + arm64 APK | PASS — payer, run 31848322396 |
 | Two-device airplane-mode QR exchange | NOT RUN |
 | Physical SecureStore/restart/camera matrix | NOT RUN |
 
