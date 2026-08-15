@@ -19,7 +19,7 @@ class FatalErrorBoundary extends React.Component<BoundaryProps, BoundaryState> {
     if (this.state.message !== null) {
       return React.createElement(SafeAreaView, { style: styles.safe },
         React.createElement(View, { style: styles.center },
-          React.createElement(Text, { style: styles.title }, "Falha ao iniciar o payer"),
+          React.createElement(Text, { style: styles.title }, "Falha ao iniciar o pagador"),
           React.createElement(Text, { style: styles.body }, this.state.message),
         ),
       );

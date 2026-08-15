@@ -174,6 +174,14 @@ Final corrective [GitHub Actions run 31848322396](https://github.com/caiomodesti
 
 The run passed 42 TypeScript tests across six files, including the new payer bootstrap regression test. The APK passed Android Signature Scheme v2 verification, declares minimum SDK 24 and target SDK 36, and contains only `arm64-v8a` native code. Earlier payer artifacts are obsolete; the merchant APK did not contain this fixture defect and does not need replacement.
 
+### Physical offline exchange evidence
+
+On 2026-08-15 the owner completed the full merchant → payer → merchant → payer QR exchange on two physical Android phones with Wi-Fi and mobile data disabled. The observed flow started with branch balance `1000` and collateral `3000`, authorized an amount of `50`, displayed all four merchant verification predicates, persisted the merchant proof, returned the exact receipt, and ended with payer balance `950` plus one local payment. This proves the core camera transport without internet; it is not an on-chain settlement test.
+
+The owner also cleared payer application data and repeated the authorization while the merchant retained the first evidence. The merchant consequently held two distinct pending proofs while the reset payer knew only its new local branch. This is expected evidence of the documented rollback threat, not proof that clearing data cancels a payment. The records must remain separate for later authoritative reconciliation.
+
+The merchant source now exposes a Portuguese claim-history view. It records proof verification/storage, locally observed receipt presentation, session/credential/edge identifiers, and a provisional possible-conflict warning when stored claims satisfy the formal sibling predicate. It deliberately cannot claim that the payer scanned the receipt and cannot emit the authoritative `FORK DETECTED` message from local state.
+
 ## Hostile audit
 
 ### Findings fixed
@@ -187,6 +195,8 @@ The run passed 42 TypeScript tests across six files, including the new payer boo
 | Medium | Large valid branch | QR liveness | Complete proof exceeds one QR after early depth | Deterministic fragmentation with animated display and 64 KiB cap | FIXED |
 | Medium | Camera repeats/reorders frames | Transfer integrity | Scanner callbacks are not ordered or exactly once | Set assembly, identical duplicate idempotency, full hash | FIXED |
 | Medium | Mixed people/old screen | Cross-transfer confusion | Valid frames from different transfers can interleave | One hash/count identity per assembly; mixed transfer rejection | FIXED |
+| Medium | Local metadata tampering | Merchant history integrity | AsyncStorage labels alone could not prove the retained frames remained valid | Revalidate canonical bundle, certificate chain, signatures, merchant and metadata before rendering verified status | FIXED |
+| Medium | Deep divergent branch | Provisional conflict visibility | Comparing only final tips misses a fork earlier in two longer complete bundles | Compare every edge retained in each complete proof bundle | FIXED |
 
 ### Remaining risks
 
@@ -194,7 +204,7 @@ The run passed 42 TypeScript tests across six files, including the new payer boo
 |---|---|---|---|---|---|
 | High for any real use | Source extraction | Payer signing authority | Development device seed is compiled into fixture app | Replace with Sprint 8 freshly generated/provisioned session key; forbid fixture in devnet/release config | OPEN GATE |
 | High | Device compromise | Offline branch integrity | Software device keys remain extractable on rooted/compromised devices | Session/time/branch/cap scope; hardware-backed signing deferred | OPEN RISK |
-| Medium | Camera/device variance | Offline transport liveness | No physical scan performed on this host | Two Android devices, airplane mode, low light, dropped frames, restart matrix | OPEN GATE |
+| Medium | Camera/device variance | Offline transport liveness | One complete two-phone network-disabled exchange passed | Retain restart, low-light and dropped-frame physical matrix for a later combined APK | PARTIALLY CLOSED |
 | Medium | Native dependency incompatibility | App availability | Local host lacks Android toolchain | Remote Gradle matrix built both development APKs | CLOSED — CI PASS |
 | Medium | Local storage loss | Merchant evidence availability | AsyncStorage is not durable backup | Submit promptly after reconnect in Sprint 8; export/redundancy later | OPEN RISK |
 | Medium | Metadata disclosure | Privacy | Full prior branch and claims stored/displayed locally | Documented non-private MVP; selective disclosure deferred | OPEN RISK |
@@ -214,11 +224,11 @@ The run passed 42 TypeScript tests across six files, including the new payer boo
 | Native Android development-client compile | PASS — both apps, run 31763513716 |
 | Standalone preview APK + embedded bundle | PASS — both apps, run 31768054067 |
 | Canonical payer bootstrap + arm64 APK | PASS — payer, run 31848322396 |
-| Two-device airplane-mode QR exchange | NOT RUN |
+| Two-device network-disabled QR exchange | PASS — owner-observed physical run, 2026-08-15 |
 | Physical SecureStore/restart/camera matrix | NOT RUN |
 
 ## Decision
 
 `CONDITIONAL PASS — IMPLEMENTATION COMPLETE, DEVICE ACCEPTANCE OPEN.`
 
-Sprint 8 must not start until a complete payer → merchant → payer exchange succeeds between two devices with both devices in airplane mode. Native Android compilation is proven; physical camera, SecureStore, and restart behavior remain the sole acceptance gate. This is an execution gate, not a chronology or architecture change.
+The complete payer → merchant → payer exchange now succeeds between two network-disconnected devices. Native Android compilation and core physical camera transport are proven; the explicit SecureStore/restart matrix remains the final Sprint 7 acceptance gate. This is an execution gate, not a chronology or architecture change.

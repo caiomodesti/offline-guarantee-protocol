@@ -102,8 +102,8 @@ export default function App() {
       if (developmentSession === null || parent === null) throw new Error("Sessão de desenvolvimento indisponível");
       const decoded = transport.receiveChallenge(receivedFrames.current);
       assertChallengeEnvironment(decoded, developmentSession.trustContext);
-      if (equalBytes(decoded.merchant, developmentSession.sessionCertificate.owner)) throw new OgpValidationError("SELF_MERCHANT_FORBIDDEN", "payer cannot pay itself");
-      if (decoded.amount > parent.remaining) throw new OgpValidationError("INVALID_AMOUNT", "amount exceeds offline available");
+      if (equalBytes(decoded.merchant, developmentSession.sessionCertificate.owner)) throw new OgpValidationError("SELF_MERCHANT_FORBIDDEN", "o pagador não pode pagar a si mesmo");
+      if (decoded.amount > parent.remaining) throw new OgpValidationError("INVALID_AMOUNT", "o valor excede o saldo offline disponível");
       setChallenge(decoded);
       setScreen("confirm");
     } catch (reason) {
@@ -149,7 +149,7 @@ export default function App() {
       try {
         const receipt: TransportReceipt = transport.receiveReceipt(receivedFrames.current);
         if (lastCredential === null || !equalBytes(receipt.credentialHash, credentialHash(lastCredential)) || !equalBytes(receipt.merchantChallenge, lastCredential.merchantChallenge)) {
-          throw new OgpValidationError("INVALID_RECEIPT", "receipt does not acknowledge the displayed credential");
+          throw new OgpValidationError("INVALID_RECEIPT", "a confirmação não corresponde à credencial exibida");
         }
         await AsyncStorage.setItem(SESSION_STATE_STORAGE, JSON.stringify({ frames: outgoingFrames, pendingDelivery: false } satisfies StoredSessionState));
         setScreen("complete");
@@ -159,39 +159,39 @@ export default function App() {
     })();
   };
 
-  if (screen === "scan-challenge") return <Scanner title="Escaneie o pedido do merchant" onCode={scanChallenge} onCancel={() => setScreen("home")} />;
-  if (screen === "scan-receipt") return <Scanner title="Escaneie a confirmação do merchant" onCode={scanReceipt} onCancel={() => setScreen("show-credential")} />;
+  if (screen === "scan-challenge") return <Scanner title="Escaneie o pedido do lojista" onCode={scanChallenge} onCancel={() => setScreen("home")} />;
+  if (screen === "scan-receipt") return <Scanner title="Escaneie a confirmação do lojista" onCode={scanReceipt} onCancel={() => setScreen("show-credential")} />;
 
-  if (!hydrated) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Preparando payer…</Text><Text style={styles.body}>Validando a sessão local protegida.</Text></View></SafeAreaView>;
-  if (developmentSession === null || parent === null) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Falha ao iniciar o payer</Text><Text style={styles.body}>{error ?? "Bootstrap indisponível"}</Text></View></SafeAreaView>;
+  if (!hydrated) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Preparando o pagador…</Text><Text style={styles.body}>Validando a sessão local protegida.</Text></View></SafeAreaView>;
+  if (developmentSession === null || parent === null) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Falha ao iniciar o pagador</Text><Text style={styles.body}>{error ?? "Sessão inicial indisponível"}</Text></View></SafeAreaView>;
 
   return <SafeAreaView style={styles.safe}><StatusBar style="dark" /><ScrollView contentContainerStyle={styles.container}>
-    <Text style={styles.eyebrow}>OFFLINE GUARANTEE</Text>
-    <Text style={styles.title}>{screen === "home" ? "Pagar sem internet" : screen === "confirm" ? "Confirmar pagamento" : screen === "show-credential" ? "Mostre ao merchant" : "Pagamento recebido"}</Text>
+    <Text style={styles.eyebrow}>GARANTIA OFFLINE</Text>
+    <Text style={styles.title}>{screen === "home" ? "Pagar sem internet" : screen === "confirm" ? "Confirmar pagamento" : screen === "show-credential" ? "Mostre ao lojista" : "Pagamento recebido"}</Text>
     {error !== null && <View style={styles.error}><Text style={styles.errorText}>{error}</Text></View>}
 
     {screen === "home" && <>
-      <View style={styles.balance}><Text style={styles.balanceLabel}>Offline disponível</Text><Text style={styles.balanceValue}>{parent.remaining.toString()}</Text><Text style={styles.balanceUnit}>unidades do token de liquidação</Text></View>
-      <View style={styles.row}><View style={styles.stat}><Text style={styles.statLabel}>Collateral</Text><Text style={styles.statValue}>{developmentSession.sessionCertificate.collateralLocked.toString()}</Text></View><View style={styles.stat}><Text style={styles.statLabel}>Sessão</Text><Text style={styles.statValue}>Pronta</Text></View></View>
-      <Action label={hydrated ? "PAGAR OFFLINE" : "CARREGANDO ESTADO…"} disabled={!hydrated} onPress={() => startScan("scan-challenge")} />
-      <Text style={styles.footnote}>Fixture local da Sprint 7. A ativação on-chain e MWA entram no E2E da Sprint 8.</Text>
+      <View style={styles.balance}><Text style={styles.balanceLabel}>Disponível sem internet</Text><Text style={styles.balanceValue}>{parent.remaining.toString()}</Text><Text style={styles.balanceUnit}>unidades do token de liquidação</Text></View>
+      <View style={styles.row}><View style={styles.stat}><Text style={styles.statLabel}>Garantia depositada</Text><Text style={styles.statValue}>{developmentSession.sessionCertificate.collateralLocked.toString()}</Text></View><View style={styles.stat}><Text style={styles.statLabel}>Sessão</Text><Text style={styles.statValue}>Pronta</Text></View></View>
+      <Action label={hydrated ? "PAGAR SEM INTERNET" : "CARREGANDO ESTADO…"} disabled={!hydrated} onPress={() => startScan("scan-challenge")} />
+      <Text style={styles.footnote}>Sessão local de demonstração da Sprint 7. A ativação on-chain e a carteira entram no teste completo da Sprint 8.</Text>
       <Text style={styles.history}>{credentials.length} pagamento(s) no histórico local</Text>
     </>}
 
     {screen === "confirm" && challenge !== null && <>
       <View style={styles.balance}><Text style={styles.balanceLabel}>Valor solicitado</Text><Text style={styles.balanceValue}>{challenge.amount.toString()}</Text></View>
-      <View style={styles.check}><Text>✓ Ambiente do protocolo confere</Text><Text>✓ Challenge não reutilizado nesta operação</Text><Text>✓ Saldo offline suficiente</Text></View>
+      <View style={styles.check}><Text>✓ Ambiente do protocolo confere</Text><Text>✓ Pedido único nesta operação</Text><Text>✓ Saldo offline suficiente</Text></View>
       <Action label="AUTORIZAR" onPress={() => void authorizePayment()} /><Action label="Cancelar" secondary onPress={() => setScreen("home")} />
     </>}
 
     {screen === "show-credential" && <>
-      <Text style={styles.body}>Mantenha esta tela apontada para a câmera do merchant. As partes mudam automaticamente.</Text>
+      <Text style={styles.body}>Mantenha esta tela apontada para a câmera do lojista. As partes mudam automaticamente.</Text>
       <FrameCarousel frames={outgoingFrames} />
       <Action label="ESCANEAR CONFIRMAÇÃO" onPress={() => startScan("scan-receipt")} />
     </>}
 
     {screen === "complete" && <>
-      <View style={styles.success}><Text style={styles.successMark}>✓</Text><Text style={styles.successTitle}>Merchant armazenou a prova</Text><Text style={styles.body}>O recibo confirma transporte e armazenamento local. Liquidação ainda está pendente.</Text></View>
+      <View style={styles.success}><Text style={styles.successMark}>✓</Text><Text style={styles.successTitle}>O lojista armazenou a prova</Text><Text style={styles.body}>O recibo confirma transporte e armazenamento local. A liquidação ainda está pendente.</Text></View>
       <Action label="CONCLUIR" onPress={() => { setChallenge(null); setLastCredential(null); setOutgoingFrames([]); setScreen("home"); }} />
     </>}
   </ScrollView></SafeAreaView>;

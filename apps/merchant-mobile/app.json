@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "OGP Merchant",
+    "name": "OGP Lojista",
     "slug": "ogp-merchant",
     "scheme": "ogp-merchant",
     "version": "0.1.0",
@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "plugins": [
       "expo-dev-client",
-      ["expo-camera", { "cameraPermission": "Permitir que o OGP Merchant valide os QR codes de pagamento.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }],
+      ["expo-camera", { "cameraPermission": "Permitir que o OGP Lojista valide os códigos QR de pagamento.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }],
       ["expo-secure-store", { "configureAndroidBackup": true }]
     ],
     "ios": {
