@@ -67,13 +67,14 @@ No APK was generated for this increment, as requested. The physically installed 
 | High | Rooted/fully compromised device | Monotonic offline branch | Attacker may restore both app data and protected key snapshot | Economic cap, fork evidence, reconciliation and Sprint 9 attack demo | OPEN RISK |
 | Medium | Malicious/misconfigured RPC response | Recovery must use program-owned authoritative accounts | Raw account bytes alone are insufficient | Verify expected profile address, active session address, program owner, strict discriminator/size, and confirmation flag | PARTIALLY CLOSED; LIVE RPC WIRING PENDING |
 | Medium | Local clock manipulation | Expired sessions must not appear valid indefinitely | Offline clocks are not absolute proof | Certificate/session expiry remains enforced by protocol/merchant validation; add explicit payer UX gate during integration without using it for branch ordering | OPEN INTEGRATION GATE |
+| Medium | Standard MWA wallet versus local validator | Wallet-authorized Sprint 8 provisioning | MWA 2.0 officially defines mainnet/testnet/devnet chain identifiers, not localnet | Keep chronology: validator E2E uses an injected signer boundary; compile/test the MWA adapter; reserve public devnet proof for Sprint 12 | OPEN RISK |
 | Low | Account layout drift | Recovery decoder correctness | Manual fixed offsets can drift after Rust changes | Frozen sizes/discriminators and decoder tests; runtime fixtures remain final proof | MITIGATED |
 
 No claims, fork detection, settlement, withdrawal, Bluetooth, dashboard, or devnet behavior was added or reordered by this increment.
 
 ## Remaining acceptance gates
 
-- wallet-authorized local-validator deposit and session creation;
+- injected wallet-signer local-validator deposit and session creation, plus compiled MWA boundary without claiming unsupported localnet wallet transport;
 - fresh device key and portable authorization bound to the confirmed session;
 - merchant reconnect and real claim submission;
 - finalization and real SPL settlement;

@@ -51,6 +51,7 @@ Every architectural question is classified. “Open risk” means the MVP behavi
 | Mobile restart safety | DECIDED FOR MVP | Payer persists the new proof bundle before display and resumes pending delivery; merchant persists challenge and evidence before acceptance |
 | Payer data loss or reinstall | DECIDED FOR MVP | Offline access fails closed; recovery requires connectivity, authoritative chain read, and wallet signature; a prior active session blocks fresh exposure |
 | Compromised full-device snapshot rollback | OPEN RISK | Software cannot prove monotonic storage on a rooted device; fork detection, collateral, deterministic reconciliation, and Sprint 9 adversarial proof bound the result |
+| MWA against local validator | OPEN RISK | MWA 2.0 officially identifies mainnet/testnet/devnet, not localnet; Sprint 8 uses an injected signer boundary for validator E2E and must not pull Sprint 12 devnet forward |
 | Bluetooth/NFC | DEFERRED | After functional QR flow / future |
 | Merchant receipt signature | DEFERRED | Potential time/non-repudiation enhancement |
 | Privacy | OPEN RISK | Public metadata permits correlation; no MVP privacy guarantee |
