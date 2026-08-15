@@ -6,11 +6,11 @@ Este roteiro é o gate final da Sprint 7. Ele usa dois APKs de preview com o bun
 
 ## 1. Instalação limpa
 
-1. Desinstale dos dois celulares os aplicativos OGP instalados anteriormente. Eles eram development clients e exibiam as telas `Local server`, `Connect`, `Fetch development servers`, `Updates` e `Scan QR code`.
-2. Baixe os dois artifacts `android-arm64-standalone-preview` da execução indicada no [relatório da Sprint 7](sprint-7-report.md). Não reutilize os artifacts universais anteriores.
-3. Extraia cada arquivo ZIP.
-4. Instale o APK de `payer-mobile` no celular do pagador.
-5. Instale o APK de `merchant-mobile` no celular do lojista.
+1. Desinstale dos dois celulares os development clients antigos, caso ainda estejam instalados. Eles exibiam as telas `Local server`, `Connect`, `Fetch development servers`, `Updates` e `Scan QR code`.
+2. Para o payer, use exclusivamente o artifact `sprint-7-payer-mobile-android-arm64-standalone-preview` da [execução final 31848322396](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31848322396). Os payer anteriores têm um fixture truncado e são obsoletos.
+3. Para o merchant, o artifact `android-arm64-standalone-preview` já instalado pode ser mantido; ele não continha o defeito do fixture do payer.
+4. Extraia o ZIP do payer e instale seu `app-release.apk` no celular do pagador.
+5. Instale o APK de `merchant-mobile` no celular do lojista apenas se ainda não estiver instalado.
 6. Aceite a instalação de fonte externa apenas para o aplicativo usado para abrir o APK, se o Android solicitar.
 
 Resultado mínimo ao abrir:
