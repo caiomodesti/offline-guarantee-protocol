@@ -44,11 +44,28 @@ The protocol SDK now strictly decodes the fixed `UserProfile` and `OfflineSessio
 
 The Sprint 7 fixture remains isolated and labeled. It is not accepted as an input to the Sprint 8 on-chain path.
 
+## Increment 8.2 — portable proof to runtime settlement
+
+The protocol SDK now exposes a single strict bridge from a merchant-verified `PaymentCredential` to the exact 410-byte payload, 64-byte payer-device signature, and 32-byte credential hash required by `submit_claim`. Application code no longer needs to reconstruct economic fields or canonical bytes.
+
+The validator suite now contains a dedicated non-conflicted Sprint 8 path:
+
+1. an injected test-wallet signer deposits 300 and creates a 100-unit session;
+2. the confirmed session facts produce a real wallet-signed `DeviceAuthorization` whose hash is registered on-chain;
+3. the configured issuer signs a portable `SessionCertificate` bound to the confirmed session;
+4. `QRTransport` round-trips the merchant challenge, complete proof bundle, and receipt;
+5. the production merchant verifier accepts the exact bundle;
+6. the SDK passes that same credential to `submit_claim` with native Ed25519 verification;
+7. after the authoritative claim deadline, the runtime freezes and allocates the single 50-unit edge;
+8. `settle_claim` transfers 50 SPL units to the merchant through PDA-signed `transfer_checked` and closes the session without the payer key.
+
+Host compilation and unit/conformance tests pass. SBF/validator execution of this new path is **PENDING RUNTIME CI** and must pass before Increment 8.2 is accepted.
+
 ## Automated evidence
 
 ```text
-TypeScript / Vitest               61 PASS across 9 files
-Sprint 8 focused gate/adapter     17 PASS
+TypeScript / Vitest               62 PASS across 9 files
+Sprint 8 focused gate/adapter     18 PASS
 Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
 Independent Rust conformance       1 PASS

@@ -2,8 +2,10 @@ name: Sprint 3 Runtime Acceptance
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
-    branches: [main, codex/sprint-6-economic-resolution]
+    branches: [main, codex/sprint-6-economic-resolution, codex/sprint-8-fail-closed-recovery]
 
 permissions:
   contents: read

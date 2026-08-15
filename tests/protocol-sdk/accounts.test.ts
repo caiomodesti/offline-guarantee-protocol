@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   CLAIM_ACCOUNT_SIZE,
   CLAIM_DISCRIMINATOR,
+  ED25519_SIGNATURE_SIZE,
   OFFLINE_SESSION_ACCOUNT_SIZE,
   OFFLINE_SESSION_DISCRIMINATOR,
+  PAYMENT_CREDENTIAL_PAYLOAD_SIZE,
   STATE_EDGE_RECORD_ACCOUNT_SIZE,
   STATE_EDGE_RECORD_DISCRIMINATOR,
   USER_PROFILE_ACCOUNT_SIZE,
@@ -12,9 +14,20 @@ import {
   decodeOfflineSession,
   decodeStateEdgeRecord,
   decodeUserProfile,
+  createClaimSubmissionMaterial,
 } from "@ogp/protocol-sdk";
+import { makeFixture } from "../crypto/fixture.js";
 
 describe("protocol account decoders", () => {
+  it("bridges the exact merchant-verified credential bytes to submit_claim", () => {
+    const fixture = makeFixture();
+    const material = createClaimSubmissionMaterial(fixture.credential);
+    expect(material.payload).toHaveLength(PAYMENT_CREDENTIAL_PAYLOAD_SIZE);
+    expect(material.payerSignature).toHaveLength(ED25519_SIGNATURE_SIZE);
+    expect(material.credentialHash).toHaveLength(32);
+    expect(material.payerSignature).toEqual(fixture.credential.payerSignature);
+  });
+
   it("decodes the authoritative UserProfile recovery fields", () => {
     const data = new Uint8Array(USER_PROFILE_ACCOUNT_SIZE);
     data.set(USER_PROFILE_DISCRIMINATOR);

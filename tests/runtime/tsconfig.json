@@ -11,7 +11,8 @@
     { "path": "../../packages/canonical-codec" },
     { "path": "../../packages/crypto" },
     { "path": "../../packages/credentials" },
-    { "path": "../../packages/protocol-sdk" }
+    { "path": "../../packages/protocol-sdk" },
+    { "path": "../../packages/transports" }
   ],
-  "include": ["validator.ts"]
+  "include": ["validator.ts", "finalization.ts"]
 }

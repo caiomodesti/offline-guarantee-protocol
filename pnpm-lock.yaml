@@ -215,7 +215,17 @@ importers:
         specifier: workspace:*
         version: link:../shared-types
 
-  packages/protocol-sdk: {}
+  packages/protocol-sdk:
+    dependencies:
+      '@ogp/canonical-codec':
+        specifier: workspace:*
+        version: link:../canonical-codec
+      '@ogp/credentials':
+        specifier: workspace:*
+        version: link:../credentials
+      '@ogp/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
 
   packages/reconciliation:
     dependencies:

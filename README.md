@@ -274,7 +274,7 @@ SPRINT 8 — IN PROGRESS
 ### Verified baselines
 
 ```text
-TypeScript / Vitest            61 tests passing across 9 files
+TypeScript / Vitest            62 tests passing across 9 files
 QR adversarial tests            7 passing
 Golden vectors                  6 passing
 Rust canonical conformance      1 passing

@@ -1,3 +1,9 @@
+import { encodePaymentCredentialPayload } from "@ogp/canonical-codec";
+import { credentialHash } from "@ogp/credentials";
+import type { PaymentCredential } from "@ogp/shared-types";
+
+export const PAYMENT_CREDENTIAL_PAYLOAD_SIZE = 410;
+export const ED25519_SIGNATURE_SIZE = 64;
 export const USER_PROFILE_ACCOUNT_SIZE = 163;
 export const OFFLINE_SESSION_ACCOUNT_SIZE = 530;
 export const CLAIM_ACCOUNT_SIZE = 272;
@@ -12,6 +18,26 @@ export type SessionStatus = "active" | "claimWindow" | "conflicted" | "reconcili
 export type CoverageStatus = "uncalculated" | "fullyCovered" | "insolvent";
 export type ClaimStatus = "submitted" | "valid" | "conflicting" | "settled" | "rejected";
 export type ClaimRejectionReason = "none" | "duplicateStateEdge";
+
+export interface ClaimSubmissionMaterial {
+  readonly payload: Uint8Array;
+  readonly payerSignature: Uint8Array;
+  readonly credentialHash: Uint8Array;
+}
+
+/**
+ * Bridges a merchant-verified portable credential to submit_claim without
+ * reserializing fields in application code.
+ */
+export function createClaimSubmissionMaterial(credential: PaymentCredential): ClaimSubmissionMaterial {
+  const payload = encodePaymentCredentialPayload(credential);
+  const payerSignature = credential.payerSignature.slice();
+  const hash = credentialHash(credential);
+  if (payload.length !== PAYMENT_CREDENTIAL_PAYLOAD_SIZE) throw new Error("payment credential payload layout mismatch");
+  if (payerSignature.length !== ED25519_SIGNATURE_SIZE) throw new Error("payer signature must contain exactly 64 bytes");
+  if (hash.length !== 32) throw new Error("credential hash must contain exactly 32 bytes");
+  return { payload, payerSignature, credentialHash: hash };
+}
 
 export interface DecodedUserProfile {
   readonly owner: Uint8Array;
