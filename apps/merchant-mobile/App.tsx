@@ -9,7 +9,7 @@ import { credentialHash, validateCredentialProofBundle } from "@ogp/credentials"
 import { derivePublicKey, generateChallenge, generateSecretKey } from "@ogp/crypto";
 import { OgpValidationError, equalBytes, type PaymentCredential } from "@ogp/shared-types";
 import { QRTransport, validateMerchantResponse, type MerchantChallenge } from "@ogp/transports";
-import { findPotentialConflictHashes, markReceiptShown, parseStoredClaims, shortHash, type ClaimBranchDescriptor, type StoredClaim } from "./src/claim-history";
+import { createStoredClaim, findPotentialConflictHashes, markReceiptShown, parseStoredClaims, shortHash, type ClaimBranchDescriptor, type ClaimLifecycleStatus, type StoredClaim } from "./src/claim-history";
 import { bytesToHex, expectedEnvironment, hexToBytes } from "./src/trust";
 
 const transport = new QRTransport();
@@ -29,6 +29,13 @@ interface StoredOutstandingChallenge {
 function errorText(error: unknown): string {
   if (error instanceof OgpValidationError) return `${error.code}: ${error.message}`;
   return error instanceof Error ? error.message : "Falha inesperada";
+}
+
+function claimStatusText(status: ClaimLifecycleStatus): string {
+  if (status === "pending-submission") return "Aguardando reconexão e envio";
+  if (status === "submitted") return "Claim confirmado · liquidação pendente";
+  if (status === "settled") return "Liquidado on-chain";
+  return "Rejeitado on-chain";
 }
 
 function FrameCarousel({ frames }: { readonly frames: readonly string[] }) {
@@ -139,7 +146,7 @@ export default function App() {
         const storedClaims = parseStoredClaims(await AsyncStorage.getItem(CLAIMS_STORAGE));
         const hashHex = bytesToHex(hash);
         if (!storedClaims.some((claim) => claim.credentialHash === hashHex)) {
-          storedClaims.push({ credentialHash: hashHex, amount: credential.amount.toString(), sessionId: bytesToHex(credential.sessionId), frames: [...receivedFrames.current], status: "pending-settlement", receiptPresentation: "not-shown" });
+          storedClaims.push(createStoredClaim({ credentialHash: hashHex, amount: credential.amount.toString(), sessionId: bytesToHex(credential.sessionId), frames: [...receivedFrames.current] }));
           await AsyncStorage.setItem(CLAIMS_STORAGE, JSON.stringify(storedClaims));
         }
         await AsyncStorage.removeItem(OUTSTANDING_STORAGE);
@@ -212,7 +219,7 @@ export default function App() {
     {screen === "home" && <>
       <Text style={styles.label}>Valor</Text><TextInput value={amountText} onChangeText={setAmountText} keyboardType="number-pad" style={styles.input} accessibilityLabel="Valor do pagamento" />
       <Action label="CRIAR PEDIDO" disabled={merchantDeviceKey === null} onPress={() => void createRequest()} />
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Abrir histórico de provas" onPress={() => setScreen("history")} style={styles.pending}><Text style={styles.pendingValue}>{claims.length}</Text><Text style={styles.pendingLabel}>prova(s) armazenada(s) · liquidação pendente</Text><Text style={styles.pendingLink}>TOQUE PARA VER O HISTÓRICO →</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Abrir histórico de provas" onPress={() => setScreen("history")} style={styles.pending}><Text style={styles.pendingValue}>{claims.length}</Text><Text style={styles.pendingLabel}>prova(s) armazenada(s) · {claims.filter((claim) => claim.status === "pending-submission").length} aguardando envio</Text><Text style={styles.pendingLink}>TOQUE PARA VER O HISTÓRICO →</Text></TouchableOpacity>
       <Text style={styles.footnote}>Nenhuma rede é consultada para criar ou verificar este pagamento.</Text>
     </>}
 
@@ -222,7 +229,7 @@ export default function App() {
     </>}
 
     {screen === "verified" && verifiedCredential !== null && <>
-      <View style={styles.proof}><Text style={styles.proofAmount}>{verifiedCredential.amount.toString()}</Text><Text style={styles.proofLine}>✓ Sessão verificada</Text><Text style={styles.proofLine}>✓ Assinatura válida</Text><Text style={styles.proofLine}>✓ Credencial íntegra</Text><Text style={styles.proofLine}>✓ Garantia presente</Text><View style={styles.pendingBadge}><Text style={styles.pendingBadgeText}>Liquidação pendente</Text></View></View>
+      <View style={styles.proof}><Text style={styles.proofAmount}>{verifiedCredential.amount.toString()}</Text><Text style={styles.proofLine}>✓ Sessão verificada</Text><Text style={styles.proofLine}>✓ Assinatura válida</Text><Text style={styles.proofLine}>✓ Credencial íntegra</Text><Text style={styles.proofLine}>✓ Garantia presente</Text><View style={styles.pendingBadge}><Text style={styles.pendingBadgeText}>Aguardando reconexão</Text></View></View>
       <Text style={styles.body}>A prova foi persistida antes desta confirmação.</Text>
       <Action label="MOSTRAR CONFIRMAÇÃO" onPress={() => void showReceipt()} />
     </>}
@@ -240,6 +247,7 @@ export default function App() {
         return <TouchableOpacity key={claim.credentialHash} accessibilityRole="button" onPress={() => openClaim(claim.credentialHash)} style={styles.claimCard}>
         <View style={styles.claimHeader}><Text style={styles.claimTitle}>Pagamento {claims.length - reverseIndex}</Text><Text style={styles.claimAmount}>{claim.amount}</Text></View>
         <Text style={valid ? styles.verifiedLabel : styles.invalidLabel}>{valid ? "✓ Prova revalidada e armazenada" : "⚠ Prova local inválida ou corrompida"}</Text>
+        <Text style={claim.status === "settled" ? styles.settledLabel : claim.status === "rejected" ? styles.invalidLabel : styles.pendingDetail}>{claimStatusText(claim.status)}</Text>
         {valid && potentialConflictHashes.has(claim.credentialHash) && <Text style={styles.conflictLabel}>⚠ Possível conflito local</Text>}
         <Text style={styles.claimMeta}>Credencial {shortHash(claim.credentialHash)}</Text>
         <Text style={styles.claimLink}>VER DETALHES →</Text>
@@ -252,7 +260,9 @@ export default function App() {
         <Text style={styles.detailLabel}>Valor</Text><Text style={styles.detailAmount}>{selectedClaim.amount}</Text>
         {selectedInspection?.valid === true ? <><Text style={styles.verifiedLabel}>✓ Sessão revalidada</Text><Text style={styles.verifiedLabel}>✓ Assinatura válida</Text><Text style={styles.verifiedLabel}>✓ Credencial íntegra</Text><Text style={styles.verifiedLabel}>✓ Prova armazenada</Text></> : <Text style={styles.invalidLabel}>⚠ A prova armazenada não passou na revalidação local e não deve ser apresentada como garantia.</Text>}
         <View style={styles.divider} />
-        <Text style={styles.detailLabel}>Liquidação</Text><Text style={styles.pendingDetail}>Pendente de reconexão</Text>
+        <Text style={styles.detailLabel}>Estado on-chain</Text><Text style={selectedClaim.status === "settled" ? styles.settledLabel : selectedClaim.status === "rejected" ? styles.invalidLabel : styles.pendingDetail}>{claimStatusText(selectedClaim.status)}</Text>
+        {selectedClaim.submissionAttempts > 0 && <><Text style={styles.detailLabel}>Tentativas de envio</Text><Text style={styles.detailValue}>{selectedClaim.submissionAttempts}</Text></>}
+        {selectedClaim.lastSubmissionError !== null && <><Text style={styles.detailLabel}>Última falha de rede</Text><Text style={styles.invalidLabel}>{selectedClaim.lastSubmissionError}</Text></>}
         <Text style={styles.detailLabel}>Confirmação mostrada ao pagador</Text>
         <Text style={styles.detailValue}>{selectedClaim.receiptPresentation === "shown" ? "Sim — a leitura pelo pagador não é observável" : selectedClaim.receiptPresentation === "not-shown" ? "Ainda não" : "Não determinada nesta versão do aplicativo"}</Text>
         {selectedInspection?.valid === true && potentialConflictHashes.has(selectedClaim.credentialHash) && <View style={styles.conflictBox}><Text style={styles.conflictTitle}>Possível conflito local</Text><Text style={styles.conflictBody}>Outra prova armazenada usa a mesma sessão, o mesmo estado anterior e a mesma sequência, mas chega a outro estado. A confirmação protocolar ocorrerá somente na reconciliação on-chain.</Text></View>}
@@ -279,5 +289,5 @@ const styles = StyleSheet.create({
   qrCard: { backgroundColor: "#fff", borderRadius: 24, padding: 18, alignItems: "center", marginVertical: 24 }, frameText: { color: "#4d5870", fontWeight: "700", marginTop: 12 },
   proof: { backgroundColor: "#111b32", borderRadius: 24, padding: 25, gap: 13, marginBottom: 20 }, proofAmount: { color: "#fff", fontSize: 50, fontWeight: "900", marginBottom: 8 }, proofLine: { color: "#dce5ff", fontSize: 16, fontWeight: "700" }, pendingBadge: { alignSelf: "flex-start", backgroundColor: "#ffe18a", paddingVertical: 7, paddingHorizontal: 12, borderRadius: 99, marginTop: 8 }, pendingBadgeText: { color: "#5c4500", fontSize: 12, fontWeight: "800", textTransform: "uppercase" },
   error: { backgroundColor: "#fee7df", borderRadius: 12, padding: 12, marginBottom: 16 }, errorText: { color: "#8b2c12", fontSize: 13 }, scanner: { flex: 1, backgroundColor: "#000" }, scanOverlay: { flex: 1, justifyContent: "space-between", padding: 28, paddingVertical: 70, backgroundColor: "rgba(0,0,0,0.22)" }, scanTitle: { color: "#fff", fontSize: 24, fontWeight: "800", textAlign: "center" },
-  bodyLeft: { color: "#4d5870", fontSize: 16, lineHeight: 23 }, empty: { backgroundColor: "#fff", borderRadius: 20, padding: 22, marginTop: 20 }, emptyTitle: { color: "#111b32", fontSize: 18, fontWeight: "800", marginBottom: 6 }, claimCard: { backgroundColor: "#fff", borderRadius: 20, padding: 20, marginTop: 14, borderWidth: 1, borderColor: "#dce2df" }, claimHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, claimTitle: { color: "#111b32", fontSize: 17, fontWeight: "800" }, claimAmount: { color: "#111b32", fontSize: 28, fontWeight: "900" }, verifiedLabel: { color: "#167763", fontSize: 14, fontWeight: "700", marginTop: 10 }, invalidLabel: { color: "#a6371b", fontSize: 14, fontWeight: "800", lineHeight: 20, marginTop: 10 }, conflictLabel: { color: "#9b5b00", fontSize: 13, fontWeight: "800", marginTop: 8 }, claimMeta: { color: "#6d7688", fontSize: 12, marginTop: 10 }, claimLink: { color: "#315dff", fontSize: 12, fontWeight: "800", marginTop: 14 }, detailCard: { backgroundColor: "#fff", borderRadius: 24, padding: 22, borderWidth: 1, borderColor: "#dce2df" }, detailLabel: { color: "#6d7688", fontSize: 12, fontWeight: "700", marginTop: 16, marginBottom: 4, textTransform: "uppercase" }, detailAmount: { color: "#111b32", fontSize: 48, fontWeight: "900" }, detailValue: { color: "#111b32", fontSize: 15, lineHeight: 21 }, pendingDetail: { color: "#8b6400", fontSize: 15, fontWeight: "800" }, hashText: { color: "#33405a", fontSize: 13, fontWeight: "700" }, divider: { height: 1, backgroundColor: "#e4e8e5", marginTop: 20 }, conflictBox: { backgroundColor: "#fff2d6", borderRadius: 14, padding: 14, marginTop: 18 }, conflictTitle: { color: "#7a4700", fontSize: 15, fontWeight: "900" }, conflictBody: { color: "#7a5520", fontSize: 13, lineHeight: 19, marginTop: 6 },
+  bodyLeft: { color: "#4d5870", fontSize: 16, lineHeight: 23 }, empty: { backgroundColor: "#fff", borderRadius: 20, padding: 22, marginTop: 20 }, emptyTitle: { color: "#111b32", fontSize: 18, fontWeight: "800", marginBottom: 6 }, claimCard: { backgroundColor: "#fff", borderRadius: 20, padding: 20, marginTop: 14, borderWidth: 1, borderColor: "#dce2df" }, claimHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, claimTitle: { color: "#111b32", fontSize: 17, fontWeight: "800" }, claimAmount: { color: "#111b32", fontSize: 28, fontWeight: "900" }, verifiedLabel: { color: "#167763", fontSize: 14, fontWeight: "700", marginTop: 10 }, settledLabel: { color: "#167763", fontSize: 15, fontWeight: "900", marginTop: 10 }, invalidLabel: { color: "#a6371b", fontSize: 14, fontWeight: "800", lineHeight: 20, marginTop: 10 }, conflictLabel: { color: "#9b5b00", fontSize: 13, fontWeight: "800", marginTop: 8 }, claimMeta: { color: "#6d7688", fontSize: 12, marginTop: 10 }, claimLink: { color: "#315dff", fontSize: 12, fontWeight: "800", marginTop: 14 }, detailCard: { backgroundColor: "#fff", borderRadius: 24, padding: 22, borderWidth: 1, borderColor: "#dce2df" }, detailLabel: { color: "#6d7688", fontSize: 12, fontWeight: "700", marginTop: 16, marginBottom: 4, textTransform: "uppercase" }, detailAmount: { color: "#111b32", fontSize: 48, fontWeight: "900" }, detailValue: { color: "#111b32", fontSize: 15, lineHeight: 21 }, pendingDetail: { color: "#8b6400", fontSize: 15, fontWeight: "800", marginTop: 10 }, hashText: { color: "#33405a", fontSize: 13, fontWeight: "700" }, divider: { height: 1, backgroundColor: "#e4e8e5", marginTop: 20 }, conflictBox: { backgroundColor: "#fff2d6", borderRadius: 14, padding: 14, marginTop: 18 }, conflictTitle: { color: "#7a4700", fontSize: 15, fontWeight: "900" }, conflictBody: { color: "#7a5520", fontSize: 13, lineHeight: 19, marginTop: 6 },
 });

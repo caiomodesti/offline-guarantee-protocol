@@ -1,12 +1,16 @@
 export type ReceiptPresentation = "not-shown" | "shown" | "unknown";
+export type ClaimLifecycleStatus = "pending-submission" | "submitted" | "settled" | "rejected";
 
 export interface StoredClaim {
   readonly credentialHash: string;
   readonly amount: string;
   readonly sessionId: string;
   readonly frames: readonly string[];
-  readonly status: "pending-settlement";
+  readonly status: ClaimLifecycleStatus;
   readonly receiptPresentation: ReceiptPresentation;
+  readonly submissionAttempts: number;
+  readonly transactionSignature: string | null;
+  readonly lastSubmissionError: string | null;
 }
 
 export interface ClaimBranchDescriptor {
@@ -30,17 +34,46 @@ function normalizeClaim(value: unknown): StoredClaim | null {
   if (!isCanonicalHex(value.credentialHash, 32) || !isCanonicalHex(value.sessionId, 32)) return null;
   if (typeof value.amount !== "string" || !/^[1-9][0-9]*$/.test(value.amount)) return null;
   if (!Array.isArray(value.frames) || value.frames.length === 0 || !value.frames.every((frame) => typeof frame === "string" && frame.length > 0)) return null;
-  if (value.status !== "pending-settlement") return null;
+  const status: ClaimLifecycleStatus | null = value.status === "pending-settlement"
+    ? "pending-submission"
+    : value.status === "pending-submission" || value.status === "submitted" || value.status === "settled" || value.status === "rejected"
+      ? value.status
+      : null;
+  if (status === null) return null;
   const receiptPresentation = value.receiptPresentation === "not-shown" || value.receiptPresentation === "shown"
     ? value.receiptPresentation
     : "unknown";
+  const submissionAttempts = Number.isSafeInteger(value.submissionAttempts) && Number(value.submissionAttempts) >= 0
+    ? Number(value.submissionAttempts)
+    : 0;
+  const transactionSignature = typeof value.transactionSignature === "string" && value.transactionSignature.length > 0
+    ? value.transactionSignature
+    : null;
+  const lastSubmissionError = typeof value.lastSubmissionError === "string" && value.lastSubmissionError.length > 0
+    ? value.lastSubmissionError
+    : null;
   return {
     credentialHash: value.credentialHash,
     amount: value.amount,
     sessionId: value.sessionId,
     frames: [...value.frames],
-    status: "pending-settlement",
+    status,
     receiptPresentation,
+    submissionAttempts,
+    transactionSignature,
+    lastSubmissionError,
+  };
+}
+
+export function createStoredClaim(input: Pick<StoredClaim, "credentialHash" | "amount" | "sessionId" | "frames">): StoredClaim {
+  return {
+    ...input,
+    frames: [...input.frames],
+    status: "pending-submission",
+    receiptPresentation: "not-shown",
+    submissionAttempts: 0,
+    transactionSignature: null,
+    lastSubmissionError: null,
   };
 }
 

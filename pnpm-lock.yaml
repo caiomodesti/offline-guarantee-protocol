@@ -71,6 +71,9 @@ importers:
       '@ogp/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
+      '@ogp/protocol-sdk':
+        specifier: workspace:*
+        version: link:../../packages/protocol-sdk
       '@ogp/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
