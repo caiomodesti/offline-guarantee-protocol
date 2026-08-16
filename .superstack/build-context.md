@@ -29,8 +29,10 @@ runtime_acceptance:
 mobile:
   platform: react-native-expo-standalone-preview
   expo_sdk: 57
-  wallet_method: mwa-planned-for-sprint-8
+  wallet_method: mwa
   qr_transport: fragmented-hash-bound
+  runtime_mode_default: on-chain-fail-closed
+  sprint_7_fixture_mode: explicit-build-time-opt-in
   standalone_preview_status: pass-payer-fixture-run-31848322396
   physical_device_tested: true
   physical_offline_exchange_status: pass-network-disabled-2026-08-15

@@ -8,7 +8,8 @@ import QRCode from "react-native-qrcode-svg";
 import { createPaymentCredential, credentialHash, validateCredentialProofBundle, type ParentState } from "@ogp/credentials";
 import { OgpValidationError, equalBytes, type PaymentCredential } from "@ogp/shared-types";
 import { QRTransport, assertChallengeEnvironment, type MerchantChallenge, type TransportReceipt } from "@ogp/transports";
-import { hexToBytes, loadDevelopmentSession, type DevelopmentSession } from "./src/dev-session";
+import { hexToBytes, type DevelopmentSession } from "./src/dev-session";
+import { bootstrapPayerRuntime } from "./src/runtime-mode";
 
 const transport = new QRTransport();
 const DEVICE_KEY_STORAGE = "ogp.session.c3.device-key";
@@ -20,6 +21,7 @@ interface StoredSessionState {
 }
 
 type Screen = "home" | "scan-challenge" | "confirm" | "show-credential" | "scan-receipt" | "complete";
+type BootstrapStatus = "loading" | "ready" | "online-recovery-required";
 
 function errorText(error: unknown): string {
   if (error instanceof OgpValidationError) return `${error.code}: ${error.message}`;
@@ -58,12 +60,17 @@ export default function App() {
   const [outgoingFrames, setOutgoingFrames] = useState<readonly string[]>([]);
   const [lastCredential, setLastCredential] = useState<PaymentCredential | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>("loading");
   const receivedFrames = useRef(new Set<string>());
 
   useEffect(() => {
     void (async () => {
-      const runtime = loadDevelopmentSession();
+      const bootstrap = bootstrapPayerRuntime(process.env.EXPO_PUBLIC_OGP_RUNTIME_MODE);
+      if (bootstrap.kind === "online-recovery-required") {
+        setBootstrapStatus("online-recovery-required");
+        return;
+      }
+      const runtime = bootstrap.runtime;
       const existing = await SecureStore.getItemAsync(DEVICE_KEY_STORAGE);
       if (existing === null) {
         await SecureStore.setItemAsync(DEVICE_KEY_STORAGE, runtime.deviceSecretHex, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY });
@@ -86,8 +93,8 @@ export default function App() {
       }
       setDevelopmentSession(runtime);
       setParent(restoredParent);
-      setHydrated(true);
-    })().catch((reason: unknown) => { setError(errorText(reason)); setHydrated(true); });
+      setBootstrapStatus("ready");
+    })().catch((reason: unknown) => { setError(errorText(reason)); setBootstrapStatus("online-recovery-required"); });
   }, []);
 
   const startScan = (next: "scan-challenge" | "scan-receipt") => {
@@ -162,7 +169,8 @@ export default function App() {
   if (screen === "scan-challenge") return <Scanner title="Escaneie o pedido do lojista" onCode={scanChallenge} onCancel={() => setScreen("home")} />;
   if (screen === "scan-receipt") return <Scanner title="Escaneie a confirmação do lojista" onCode={scanReceipt} onCancel={() => setScreen("show-credential")} />;
 
-  if (!hydrated) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Preparando o pagador…</Text><Text style={styles.body}>Validando a sessão local protegida.</Text></View></SafeAreaView>;
+  if (bootstrapStatus === "loading") return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Preparando o pagador…</Text><Text style={styles.body}>Validando a sessão local protegida.</Text></View></SafeAreaView>;
+  if (bootstrapStatus === "online-recovery-required") return <SafeAreaView style={styles.safe}><StatusBar style="dark" /><View style={styles.center}><Text style={styles.eyebrow}>GARANTIA OFFLINE</Text><Text style={styles.title}>Conexão necessária</Text><Text style={styles.body}>Esta instalação não possui uma sessão offline completa e confirmada. Conecte-se para recuperar o estado on-chain e autorizar a carteira. Limpar os dados ou reinstalar nunca cria um novo saldo offline.</Text>{error !== null && <View style={styles.error}><Text style={styles.errorText}>{error}</Text></View>}<Text style={styles.footnote}>Nenhum pagamento, chave de sessão ou limite foi recriado automaticamente.</Text></View></SafeAreaView>;
   if (developmentSession === null || parent === null) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.title}>Falha ao iniciar o pagador</Text><Text style={styles.body}>{error ?? "Sessão inicial indisponível"}</Text></View></SafeAreaView>;
 
   return <SafeAreaView style={styles.safe}><StatusBar style="dark" /><ScrollView contentContainerStyle={styles.container}>
@@ -173,8 +181,8 @@ export default function App() {
     {screen === "home" && <>
       <View style={styles.balance}><Text style={styles.balanceLabel}>Disponível sem internet</Text><Text style={styles.balanceValue}>{parent.remaining.toString()}</Text><Text style={styles.balanceUnit}>unidades do token de liquidação</Text></View>
       <View style={styles.row}><View style={styles.stat}><Text style={styles.statLabel}>Garantia depositada</Text><Text style={styles.statValue}>{developmentSession.sessionCertificate.collateralLocked.toString()}</Text></View><View style={styles.stat}><Text style={styles.statLabel}>Sessão</Text><Text style={styles.statValue}>Pronta</Text></View></View>
-      <Action label={hydrated ? "PAGAR SEM INTERNET" : "CARREGANDO ESTADO…"} disabled={!hydrated} onPress={() => startScan("scan-challenge")} />
-      <Text style={styles.footnote}>Sessão local de demonstração da Sprint 7. A ativação on-chain e a carteira entram no teste completo da Sprint 8.</Text>
+      <Action label="PAGAR SEM INTERNET" onPress={() => startScan("scan-challenge")} />
+      <Text style={styles.footnote}>Modo explícito de demonstração da Sprint 7. O modo normal da Sprint 8 nunca recria esta fixture após perda de dados.</Text>
       <Text style={styles.history}>{credentials.length} pagamento(s) no histórico local</Text>
     </>}
 

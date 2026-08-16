@@ -64,6 +64,8 @@ jobs:
       # The release remains debug-key signed and is not a production release.
       - name: Compile arm64 standalone preview APK
         working-directory: apps/${{ matrix.app }}/android
+        env:
+          EXPO_PUBLIC_OGP_RUNTIME_MODE: development-fixture
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
 
       - name: Verify signature, manifest, ABI, embedded bundle and SHA-256

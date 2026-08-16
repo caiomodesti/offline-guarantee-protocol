@@ -87,11 +87,30 @@ The mobile history remains honest: it labels synchronized states as a **local re
 
 Increment 8.3 is **PASS** in [GitHub Actions run 31903471226](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31903471226), including mobile typechecks, 71 host tests, SBF build, and all 37 cumulative validator/runtime checks.
 
+## Increment 8.4 — explicit fail-closed payer runtime
+
+The payer no longer enters the Sprint 7 fixture merely because the application started with empty storage. Runtime selection is now explicit and deterministic:
+
+```text
+unset | on-chain
+→ ONLINE_RECOVERY_REQUIRED
+→ no fixture load
+→ no device-session key creation
+→ no offline balance creation
+
+development-fixture
+→ labeled Sprint 7 demonstration path only
+```
+
+An unknown or misspelled runtime mode fails instead of falling back. The existing Sprint 7 APK workflow opts into `development-fixture` at build time so historical demo artifacts remain reproducible; the default source path is `on-chain`. Tests inject a forbidden fixture loader and prove it is never invoked by the default path.
+
+This increment closes the automatic-fixture boot hazard but does not pretend online recovery is already implemented. The production screen says in Portuguese that connectivity, confirmed chain recovery, and wallet authorization are required. The next Sprint 8 increment must place the real recovery/provisioning controller behind this boundary.
+
 ## Automated evidence
 
 ```text
-TypeScript / Vitest               71 PASS across 11 files
-Sprint 8 recovery/queue/adapter  32 PASS
+TypeScript / Vitest               74 PASS across 12 files
+Sprint 8 recovery/queue/adapter  35 PASS
 Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
 Independent Rust conformance       1 PASS
@@ -145,11 +164,20 @@ No APK was generated for this increment, as requested. The physically installed 
 | Medium | Slow relayer near deadline | Merchant may miss `claim_submission_deadline` despite durable evidence | Queue policy cannot guarantee liveness of an absent backend | Preserve evidence/errors, support interchangeable relayers, expose deadline urgency, and test reconnect before/at/after deadline | OPEN INTEGRATION RISK |
 | Medium | Development merchant identity reused | Claim destination must be the real merchant wallet | Sprint 7 app still compiles a public demonstration merchant address | Production mode must source merchant authority/destination from its wallet/account configuration; never introduce a wallet secret into app storage | OPEN INTEGRATION GATE |
 
+## Hostile audit — increment 8.4
+
+| Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
+|---|---|---|---|---|---|
+| High | Ordinary clear-data/reinstall | Local loss must never mint fresh offline capacity | The previous app always called `loadDevelopmentSession()` on boot | Default mode returns `ONLINE_RECOVERY_REQUIRED` before any fixture or protected key load | CLOSED IN APP BOOT |
+| High | Build misconfiguration | A typo must not enable development collateral/capacity | An implicit fallback could silently choose a demo path | Only exact `development-fixture` opts in; all unknown values throw | CLOSED |
+| High | Production artifact contains demonstration material | Fixture secrets must never become a production custody mechanism | Source still imports the Sprint 7 fixture module for the explicit historical demo build | Create distinct production/demo entrypoints and verify production bundle absence before mobile signoff | OPEN BUILD-SEPARATION GATE |
+| Medium | Recovery UI overpromises functionality | A blocked screen is not on-chain recovery | Default mode currently has no live RPC/MWA controller behind it | UI states the requirement without offering a fake success path; controller remains a Sprint 8 gate | OPEN INTEGRATION GATE |
+
 No program instruction, economic policy, fork behavior, Bluetooth, dashboard, or devnet behavior was added or reordered by this increment. The tests exercise already authorized claim/finalization/settlement functionality to prove the original Sprint 8 normal path.
 
 ## Remaining acceptance gates
 
-- replace the payer app's labeled Sprint 7 fixture with the production online recovery/provisioning controller;
+- implement the production online recovery/provisioning controller behind the new default fail-closed runtime boundary;
 - connect the compiled MWA boundary on a supported cluster without storing wallet keys in the app;
 - implement the Solana RPC/relayer adapter behind the now-tested durable merchant queue and persist each returned queue state;
 - surface authoritative claim, settlement, and session-close states in Portuguese in both apps;
