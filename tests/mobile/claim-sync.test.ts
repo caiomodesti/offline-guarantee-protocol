@@ -25,6 +25,7 @@ function snapshot(value: StoredClaim, status: AuthoritativeClaimSnapshot["status
     sessionId: value.sessionId,
     amount: value.amount,
     status,
+    confirmedSlot: "42",
     transactionSignature: "chain-signature",
   };
 }
@@ -55,6 +56,7 @@ describe("merchant reconnect claim queue", () => {
 
     expect(updated.status).toBe("submitted");
     expect(updated.transactionSignature).toBe("chain-signature");
+    expect(updated.lastConfirmedSlot).toBe("42");
     expect(adapter.submitClaim).not.toHaveBeenCalled();
   });
 

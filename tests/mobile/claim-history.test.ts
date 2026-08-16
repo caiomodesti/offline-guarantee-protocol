@@ -32,6 +32,7 @@ describe("merchant claim history", () => {
       receiptPresentation: "not-shown",
       submissionAttempts: 0,
       transactionSignature: null,
+      lastConfirmedSlot: null,
       lastSubmissionError: null,
     });
   });

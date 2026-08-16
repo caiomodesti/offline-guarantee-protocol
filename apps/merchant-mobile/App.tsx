@@ -33,9 +33,9 @@ function errorText(error: unknown): string {
 
 function claimStatusText(status: ClaimLifecycleStatus): string {
   if (status === "pending-submission") return "Aguardando reconexão e envio";
-  if (status === "submitted") return "Claim confirmado · liquidação pendente";
-  if (status === "settled") return "Liquidado on-chain";
-  return "Rejeitado on-chain";
+  if (status === "submitted") return "Última sincronização: claim confirmado";
+  if (status === "settled") return "Última sincronização: liquidação confirmada";
+  return "Última sincronização: rejeição confirmada";
 }
 
 function FrameCarousel({ frames }: { readonly frames: readonly string[] }) {
@@ -260,7 +260,9 @@ export default function App() {
         <Text style={styles.detailLabel}>Valor</Text><Text style={styles.detailAmount}>{selectedClaim.amount}</Text>
         {selectedInspection?.valid === true ? <><Text style={styles.verifiedLabel}>✓ Sessão revalidada</Text><Text style={styles.verifiedLabel}>✓ Assinatura válida</Text><Text style={styles.verifiedLabel}>✓ Credencial íntegra</Text><Text style={styles.verifiedLabel}>✓ Prova armazenada</Text></> : <Text style={styles.invalidLabel}>⚠ A prova armazenada não passou na revalidação local e não deve ser apresentada como garantia.</Text>}
         <View style={styles.divider} />
-        <Text style={styles.detailLabel}>Estado on-chain</Text><Text style={selectedClaim.status === "settled" ? styles.settledLabel : selectedClaim.status === "rejected" ? styles.invalidLabel : styles.pendingDetail}>{claimStatusText(selectedClaim.status)}</Text>
+        <Text style={styles.detailLabel}>Registro local da última sincronização</Text><Text style={selectedClaim.status === "settled" ? styles.settledLabel : selectedClaim.status === "rejected" ? styles.invalidLabel : styles.pendingDetail}>{claimStatusText(selectedClaim.status)}</Text>
+        {selectedClaim.lastConfirmedSlot !== null && <><Text style={styles.detailLabel}>Slot confirmado observado</Text><Text style={styles.detailValue}>{selectedClaim.lastConfirmedSlot}</Text></>}
+        {selectedClaim.transactionSignature !== null && <><Text style={styles.detailLabel}>Transação observada</Text><Text style={styles.hashText}>{shortHash(selectedClaim.transactionSignature)}</Text></>}
         {selectedClaim.submissionAttempts > 0 && <><Text style={styles.detailLabel}>Tentativas de envio</Text><Text style={styles.detailValue}>{selectedClaim.submissionAttempts}</Text></>}
         {selectedClaim.lastSubmissionError !== null && <><Text style={styles.detailLabel}>Última falha de rede</Text><Text style={styles.invalidLabel}>{selectedClaim.lastSubmissionError}</Text></>}
         <Text style={styles.detailLabel}>Confirmação mostrada ao pagador</Text>

@@ -10,6 +10,7 @@ export interface StoredClaim {
   readonly receiptPresentation: ReceiptPresentation;
   readonly submissionAttempts: number;
   readonly transactionSignature: string | null;
+  readonly lastConfirmedSlot: string | null;
   readonly lastSubmissionError: string | null;
 }
 
@@ -49,6 +50,9 @@ function normalizeClaim(value: unknown): StoredClaim | null {
   const transactionSignature = typeof value.transactionSignature === "string" && value.transactionSignature.length > 0
     ? value.transactionSignature
     : null;
+  const lastConfirmedSlot = typeof value.lastConfirmedSlot === "string" && /^(0|[1-9][0-9]*)$/.test(value.lastConfirmedSlot)
+    ? value.lastConfirmedSlot
+    : null;
   const lastSubmissionError = typeof value.lastSubmissionError === "string" && value.lastSubmissionError.length > 0
     ? value.lastSubmissionError
     : null;
@@ -61,6 +65,7 @@ function normalizeClaim(value: unknown): StoredClaim | null {
     receiptPresentation,
     submissionAttempts,
     transactionSignature,
+    lastConfirmedSlot,
     lastSubmissionError,
   };
 }
@@ -73,6 +78,7 @@ export function createStoredClaim(input: Pick<StoredClaim, "credentialHash" | "a
     receiptPresentation: "not-shown",
     submissionAttempts: 0,
     transactionSignature: null,
+    lastConfirmedSlot: null,
     lastSubmissionError: null,
   };
 }

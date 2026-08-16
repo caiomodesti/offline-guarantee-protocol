@@ -64,11 +64,34 @@ Increment 8.2 is **PASS** in [GitHub Actions run 31901840994](https://github.com
 
 The first runtime attempt exposed a real confirmation race: `.rpc()` had returned, but the newly created session was not yet observable at `confirmed` commitment when portable authorization material was about to be produced. Provisioning now waits for `confirmTransaction(..., "confirmed")` and then fetches the session at `confirmed`. This is a security boundary, not merely a test delay: offline authority must never be derived from a transaction known only at `processed` commitment.
 
+## Increment 8.3 — durable merchant reconnect queue
+
+Merchant evidence now has an explicit local lifecycle instead of the ambiguous legacy label `pending-settlement`:
+
+```text
+pending-submission
+→ submitted
+→ settled | rejected
+```
+
+Legacy Sprint 7 entries migrate conservatively to `pending-submission`; no old local record is promoted to an on-chain state. On reconnect, the queue:
+
+1. looks up the credential-hash claim account before submitting;
+2. revalidates the complete stored QR proof and derives the exact 410-byte payload through the protocol SDK, never from editable display metadata;
+3. submits and waits for transaction confirmation through an injected relayer/RPC boundary;
+4. refetches the claim and requires confirmed matching hash, session, amount, and slot before advancing local state;
+5. performs another hash lookup after an ambiguous network failure, preventing blind duplicate retries;
+6. continues other claims after an individual failure and preserves failed evidence for retry.
+
+The mobile history remains honest: it labels synchronized states as a **local record of the last confirmed observation**, with observed slot/signature, rather than presenting AsyncStorage as current chain truth. The actual Solana RPC/relayer adapter is still pending; this increment deliberately does not simulate connectivity.
+
+Increment 8.3 is **PASS** in [GitHub Actions run 31903471226](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31903471226), including mobile typechecks, 71 host tests, SBF build, and all 37 cumulative validator/runtime checks.
+
 ## Automated evidence
 
 ```text
-TypeScript / Vitest               62 PASS across 9 files
-Sprint 8 focused gate/adapter     18 PASS
+TypeScript / Vitest               71 PASS across 11 files
+Sprint 8 recovery/queue/adapter  32 PASS
 Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
 Independent Rust conformance       1 PASS
@@ -111,13 +134,24 @@ No APK was generated for this increment, as requested. The physically installed 
 | Medium | CI fixture leakage | Test owner key must never become an application custody pattern | The pre-existing two-phase runtime harness serializes an ephemeral owner key under `target/` so it can continue after validator restart | `target/` is gitignored; the fixture is not uploaded in the runtime artifact or logged; production mobile code remains MWA-only and stores no wallet key | TEST-ONLY; VERIFY ARTIFACT ALLOWLIST CONTINUOUSLY |
 | Low | GitHub Actions moves off Node 20 action runtime | Evidence pipeline availability | Run emitted the upstream actions Node 20 deprecation warning while succeeding under forced Node 24 | Upgrade official action majors when stable; no protocol or artifact effect today | OPEN MAINTENANCE |
 
+## Hostile audit — increment 8.3
+
+| Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
+|---|---|---|---|---|---|
+| High | Common retry race | One credential must not multiply economic exposure | Submit may succeed while the RPC response is lost | Confirmed hash lookup before submission and after ambiguous failure; on-chain claim PDA and edge idempotency remain final controls | CLOSED IN QUEUE + RUNTIME |
+| High | Local metadata tampering | Submitted bytes must equal merchant-verified evidence | Amount/session/hash fields live beside QR frames in AsyncStorage | Revalidate the complete proof and derive payload/signature/hash from its final credential; require all display metadata to match | CLOSED |
+| High | False success from transaction signature alone | Dashboard must not claim settlement from local state | A signature can exist before confirmation or without the expected account | Advance only after confirmed, field-matching claim lookup; UI says “última sincronização” and records observed slot/signature | CLOSED IN MODEL; LIVE RPC UI REFRESH PENDING |
+| Medium | One broken claim starves the queue | Every timely merchant proof should get a submission attempt | Sequential worker could stop at first exception | Isolate failures and continue deterministic credential-hash traversal | CLOSED |
+| Medium | Slow relayer near deadline | Merchant may miss `claim_submission_deadline` despite durable evidence | Queue policy cannot guarantee liveness of an absent backend | Preserve evidence/errors, support interchangeable relayers, expose deadline urgency, and test reconnect before/at/after deadline | OPEN INTEGRATION RISK |
+| Medium | Development merchant identity reused | Claim destination must be the real merchant wallet | Sprint 7 app still compiles a public demonstration merchant address | Production mode must source merchant authority/destination from its wallet/account configuration; never introduce a wallet secret into app storage | OPEN INTEGRATION GATE |
+
 No program instruction, economic policy, fork behavior, Bluetooth, dashboard, or devnet behavior was added or reordered by this increment. The tests exercise already authorized claim/finalization/settlement functionality to prove the original Sprint 8 normal path.
 
 ## Remaining acceptance gates
 
 - replace the payer app's labeled Sprint 7 fixture with the production online recovery/provisioning controller;
 - connect the compiled MWA boundary on a supported cluster without storing wallet keys in the app;
-- connect the merchant's durable local claim queue to an idempotent reconnect/relayer submission path;
+- implement the Solana RPC/relayer adapter behind the now-tested durable merchant queue and persist each returned queue state;
 - surface authoritative claim, settlement, and session-close states in Portuguese in both apps;
 - physically test clear-data/reinstall against authoritative active-session state so it cannot create new exposure;
 - run the complete two-phone normal path again after those app integrations.

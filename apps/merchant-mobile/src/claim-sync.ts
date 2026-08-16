@@ -8,6 +8,7 @@ export interface AuthoritativeClaimSnapshot {
   readonly sessionId: string;
   readonly amount: string;
   readonly status: AuthoritativeClaimStatus;
+  readonly confirmedSlot: string;
   readonly transactionSignature: string | null;
 }
 
@@ -37,6 +38,7 @@ function assertSnapshotMatches(claim: StoredClaim, snapshot: AuthoritativeClaimS
   if (snapshot.credentialHash !== claim.credentialHash) throw new Error("credential hash on-chain divergente");
   if (snapshot.sessionId !== claim.sessionId) throw new Error("sessão do claim on-chain divergente");
   if (snapshot.amount !== claim.amount) throw new Error("valor do claim on-chain divergente");
+  if (!/^(0|[1-9][0-9]*)$/.test(snapshot.confirmedSlot)) throw new Error("slot confirmado do claim é inválido");
 }
 
 function applySnapshot(claim: StoredClaim, snapshot: AuthoritativeClaimSnapshot, fallbackSignature: string | null): StoredClaim {
@@ -45,6 +47,7 @@ function applySnapshot(claim: StoredClaim, snapshot: AuthoritativeClaimSnapshot,
     ...claim,
     status: lifecycleStatus(snapshot.status),
     transactionSignature: snapshot.transactionSignature ?? fallbackSignature ?? claim.transactionSignature,
+    lastConfirmedSlot: snapshot.confirmedSlot,
     lastSubmissionError: null,
   };
 }
