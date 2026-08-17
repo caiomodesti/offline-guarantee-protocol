@@ -23,8 +23,8 @@ runtime_acceptance:
   solana_version: 3.1.10
   anchor_version: 1.0.2
   validator_backend: solana-test-validator
-  run_id: 31728923466
-  tested_commit: 359a9f40183ea1a350db1b5e1f010dbb569a84ac
+  run_id: 31988270674
+  tested_commit: ab1c833481d94cbd4d7b90876d4549c105a3358e
   status: pass
 mobile:
   platform: react-native-expo-standalone-preview
@@ -40,7 +40,7 @@ mobile:
   production_fixture_separation_status: pass-source-graph-increment-8.7
   merchant_rpc_relayer_port_status: pass-source-increment-8.8
   merchant_durable_sync_ui_status: pass-source-increment-8.9
-  local_claim_relayer_status: pass-host-increment-8.10-validator-ci-pending
+  local_claim_relayer_status: pass-host-and-validator-increment-8.10-run-31988270674
   merchant_production_fixture_separation_status: pass-source-graph-increment-8.9
 ```
 

@@ -223,7 +223,7 @@ For every request the service:
 
 In-process duplicate requests for one credential hash are coalesced. Durable and cross-process idempotency remains the on-chain Claim PDA; an existing PDA returns `409`, and the merchant then performs its already-defined strict authoritative lookup. HTTP requests are capped at 8 KiB, 15 seconds, eight concurrent submissions and 30 submissions per remote address per minute; a separate 45-second submission response timeout avoids hanging clients. Unknown errors are sanitized, and request bodies/private keys are never logged.
 
-The validator harness's normal portable path now calls this exact relayer core instead of constructing the claim transaction inline. It therefore proves the production account planner, native verifier offsets, raw Anchor encoding, signer, PDA creation and program execution together. This does not claim a public service deployment: the configured endpoint, TLS/operations, fallback relayer and physical reconnect remain acceptance gates. No APK was generated.
+The validator harness's normal portable path now calls this exact relayer core instead of constructing the claim transaction inline. It therefore proves the production account planner, native verifier offsets, raw Anchor encoding, signer, PDA creation and program execution together. [GitHub Actions run 31988270674](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31988270674) passed the host suite, real SBF build, validator collection/CPI/invariants and post-deadline economic resolution for commit `ab1c833`. This does not claim a public service deployment: the configured endpoint, TLS/operations, fallback relayer and physical reconnect remain acceptance gates. No APK was generated.
 
 ## Automated evidence
 
@@ -241,7 +241,7 @@ Sprint 8 SPL settlement compute    36,890 CU
 Sprint 8 session close compute      9,304 CU
 ```
 
-Pinned runtime environment: Rust/Cargo 1.97.1, Agave/Solana CLI 3.1.10, Anchor CLI 1.0.2, Node 22.17.0, pnpm 11.16.0. The SBF artifact SHA-256 is `d567c541c21e2e2d543e81d75bc8f27693d1573e50a3df85344ed1bc5b5acde3` for program `7BDWpBB9tvPfk1FBFP6kCen9UECWxa1t5VReu2Q3ybKf` in that ephemeral CI environment.
+Pinned runtime environment: Rust/Cargo 1.97.1, Agave/Solana CLI 3.1.10, Anchor CLI 1.0.2, Node 22.17.0, pnpm 11.16.0. The latest accepted SBF artifact is 587,232 bytes with SHA-256 `4d3617c8fe74bc080fecfafbe0da0dd0c61ffd8d35a3490911977c6888c20b85` for program `5ARWrQTJ4129WpwMSWu3cmSzcomRtdJnXmuoNthbdUFv` in run 31988270674's ephemeral CI environment.
 
 No APK was generated for this increment, as requested. The physically installed Sprint 7 apps therefore do not yet contain the new recovery gate.
 
