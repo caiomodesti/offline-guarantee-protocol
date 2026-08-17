@@ -4,7 +4,7 @@ import {
   type DecodedOfflineSession,
   type SessionStatus,
 } from "@ogp/protocol-sdk";
-import type { AuthoritativeRecoveryState, AuthoritativeSessionStatus } from "./session-access";
+import type { AuthoritativeRecoveryState, AuthoritativeSessionStatus } from "./session-access.js";
 
 export interface RawProgramAccount {
   readonly address: Uint8Array;

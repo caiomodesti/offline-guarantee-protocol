@@ -1,6 +1,6 @@
 import type { OfflineTrustEnvironment } from "@ogp/transports";
-import { hasCompleteOnchainStorage, restoreOnchainSession, type PersistedOnchainSession, type RestoredOnchainSession } from "./onchain-provisioning";
-import { decideSessionAccess, type AuthoritativeRecoveryState, type SessionAccessDecision } from "./session-access";
+import { hasCompleteOnchainStorage, restoreOnchainSession, type PersistedOnchainSession, type RestoredOnchainSession } from "./onchain-provisioning.js";
+import { decideSessionAccess, type AuthoritativeRecoveryState, type SessionAccessDecision } from "./session-access.js";
 
 const HEX_32 = /^[0-9a-f]{64}$/;
 
@@ -55,9 +55,15 @@ async function restoreLocal(storage: PayerRecoveryStoragePort, expected: Offline
   if (!hasCompleteOnchainStorage(snapshot.provisioningJson, snapshot.branchStateJson, snapshot.deviceSecretHex)) {
     return { restored: null, error: "A instalação contém somente parte da sessão." };
   }
+  const provisioningJson = snapshot.provisioningJson;
+  const branchStateJson = snapshot.branchStateJson;
+  const deviceSecretHex = snapshot.deviceSecretHex;
+  if (provisioningJson === null || branchStateJson === null || deviceSecretHex === null) {
+    return { restored: null, error: "A instalação contém somente parte da sessão." };
+  }
   try {
     return {
-      restored: restoreOnchainSession(snapshot.provisioningJson, snapshot.branchStateJson, snapshot.deviceSecretHex, expected),
+      restored: restoreOnchainSession(provisioningJson, branchStateJson, deviceSecretHex, expected),
       error: null,
     };
   } catch (reason) {

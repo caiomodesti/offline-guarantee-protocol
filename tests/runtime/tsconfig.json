@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true,
+    "rootDir": "../..",
     "noEmit": true,
     "types": ["node"],
     "skipLibCheck": true
@@ -14,5 +15,14 @@
     { "path": "../../packages/protocol-sdk" },
     { "path": "../../packages/transports" }
   ],
-  "include": ["validator.ts", "finalization.ts"]
+  "include": [
+    "validator.ts",
+    "finalization.ts",
+    "../../apps/payer-mobile/src/confirmed-recovery-port.ts",
+    "../../apps/payer-mobile/src/onchain-provisioning.ts",
+    "../../apps/payer-mobile/src/onchain-recovery-controller.ts",
+    "../../apps/payer-mobile/src/onchain-recovery.ts",
+    "../../apps/payer-mobile/src/payer-runtime.ts",
+    "../../apps/payer-mobile/src/session-access.ts"
+  ]
 }

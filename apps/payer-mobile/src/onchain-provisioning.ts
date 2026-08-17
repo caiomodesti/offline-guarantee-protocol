@@ -14,13 +14,13 @@ import {
 } from "@ogp/credentials";
 import { equalBytes, type ProtocolTrustContext } from "@ogp/shared-types";
 import { QRTransport, type OfflineTrustEnvironment } from "@ogp/transports";
-import type { LocalProvisioningRecord } from "./session-access";
+import type { LocalProvisioningRecord } from "./session-access.js";
 import {
   bytesToHex,
   hexToBytes,
   type PayerSessionRuntime,
   type RestoredPayerSession,
-} from "./payer-runtime";
+} from "./payer-runtime.js";
 
 const PROVISIONING_VERSION = 1;
 const BRANCH_STATE_VERSION = 1;

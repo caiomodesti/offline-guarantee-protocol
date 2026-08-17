@@ -1,7 +1,7 @@
 import { decodeUserProfile } from "@ogp/protocol-sdk";
-import { authoritativeRecoveryFromAccounts, type RawProgramAccount } from "./onchain-recovery";
-import type { PayerRecoveryChainPort } from "./onchain-recovery-controller";
-import { hexToBytes } from "./payer-runtime";
+import { authoritativeRecoveryFromAccounts, type RawProgramAccount } from "./onchain-recovery.js";
+import type { PayerRecoveryChainPort } from "./onchain-recovery-controller.js";
+import { hexToBytes } from "./payer-runtime.js";
 
 export interface ConfirmedProgramAccount {
   readonly contextSlot: bigint;

@@ -1,10 +1,12 @@
 {
   "name": "payer-mobile",
   "version": "0.1.0",
+  "type": "module",
   "main": "index.ts",
   "dependencies": {
     "@ogp/canonical-codec": "workspace:*",
     "@ogp/credentials": "workspace:*",
+    "@ogp/crypto": "workspace:*",
     "@ogp/protocol-sdk": "workspace:*",
     "@ogp/shared-types": "workspace:*",
     "@ogp/transports": "workspace:*",
