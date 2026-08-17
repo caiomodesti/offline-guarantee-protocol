@@ -71,9 +71,6 @@ importers:
       '@ogp/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
-      '@ogp/crypto':
-        specifier: workspace:*
-        version: link:../../packages/crypto
       '@ogp/protocol-sdk':
         specifier: workspace:*
         version: link:../../packages/protocol-sdk
@@ -132,6 +129,9 @@ importers:
       '@ogp/credentials':
         specifier: workspace:*
         version: link:../../packages/credentials
+      '@ogp/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@ogp/protocol-sdk':
         specifier: workspace:*
         version: link:../../packages/protocol-sdk
