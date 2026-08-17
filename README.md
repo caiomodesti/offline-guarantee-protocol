@@ -433,6 +433,12 @@ Read the [threat model](docs/threat-model.md), [risk model](docs/risk-model.md),
 | [Requirements traceability](docs/requirements-traceability.md) | Requirement → decision → trust → threat → mitigation → future test |
 | [Architecture decision records](docs/adr/README.md) | Immutable rationale for major choices |
 
+### Future research (not part of the approved MVP)
+
+| Document | Status |
+|---|---|
+| [Spend Notes architecture study](docs/spend-notes-architecture-study.md) | Research only — isolated prototype recommended; no production change authorized |
+
 ### Sprint evidence
 
 | Sprint | Report |
