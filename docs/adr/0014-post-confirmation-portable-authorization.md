@@ -25,3 +25,9 @@ Session activation is a two-step lifecycle:
 - Failure between the two steps leaves collateral reserved but creates no claim authority. Recovery/closure remains scheduled for the later lifecycle sprint.
 - The certificate issuer still has no activation, collateral, claim, or settlement authority.
 - This corrects an implementation-order contradiction; it does not renumber sprints or alter the economic policy.
+
+## Implementation record — Sprint 8.6
+
+The payer provisioning orchestrator now enforces the accepted lifecycle as a single fail-closed state machine. It accepts only an explicit wallet/MWA port that returns public keys, message signatures and transaction signatures; it never accepts a wallet secret. After both the creation and authorization-registration transactions it requires confirmation plus a fresh program-owned session read. The certificate response is validated against the configured trust root, registered authorization hash and every immutable confirmed session field before the protected device key is committed last.
+
+The orchestration port is compiled and host-tested. A concrete Android MWA transport and deployed certificate-issuer endpoint remain integration gates; the port itself must not be presented as physical MWA proof.

@@ -124,11 +124,33 @@ When connected, an injected confirmed-account port reads the profile first and a
 
 The validator normal path now serializes the real signed material created from its confirmed session, passes it through the mobile persistence/controller code, refetches the real `UserProfile` and `OfflineSession`, and proves `OFFLINE_READY` only after all bindings match. Wallet keys remain outside the controller; the runtime harness supplies an injected test signer while physical MWA remains a later Sprint 8 gate on a supported cluster.
 
+## Increment 8.6 — deterministic portable-authorization orchestration
+
+The payer now has a fail-closed provisioning state machine matching ADR-0014:
+
+```text
+explicit wallet authorization
+→ confirmed profile is free
+→ create_offline_session
+→ confirm + refetch immutable session
+→ wallet signs canonical DeviceAuthorization payload
+→ register_device_authorization(hash)
+→ confirm + refetch registered hash
+→ certificate issuer independently attests the session
+→ client validates issuer signature and every confirmed field
+→ branch/public records are written
+→ protected device key is committed last
+```
+
+No wallet private key enters the controller. Session/device nonces come from an injected secure-entropy boundary. Every 32/64-byte value, requested economic limit, authoritative clock field, deadline, context-slot monotonicity, authorization hash, issuer trust root and recomputed genesis hash is checked before persistence. An existing confirmed active session stops the flow before creation. A valid issuer signature over inconsistent chain facts is still rejected.
+
+This increment implements and tests the orchestration contract, not the physical Android transport. The concrete MWA transaction builder and deployed issuer HTTP boundary remain open Sprint 8 integration gates and must not be described as completed.
+
 ## Automated evidence
 
 ```text
-TypeScript / Vitest               89 PASS across 16 files
-Sprint 8 recovery/queue/adapter  50 PASS
+TypeScript / Vitest               92 PASS across 17 files
+Sprint 8 recovery/queue/adapter  53 PASS
 Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
 Independent Rust conformance       1 PASS
@@ -204,9 +226,20 @@ No APK was generated for this increment, as requested. The physically installed 
 
 No program instruction, economic policy, fork behavior, Bluetooth, dashboard, or devnet behavior was added or reordered by this increment. The tests exercise already authorized claim/finalization/settlement functionality to prove the original Sprint 8 normal path.
 
+## Hostile audit — increment 8.6
+
+| Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
+|---|---|---|---|---|---|
+| High | Client sequencing error | No certificate before owner authorization is registered | Lifecycle spans two wallet transactions and issuer request | Single ordered orchestrator; confirmed refetch after each transaction; issuer called last | CLOSED IN ORCHESTRATOR; PHYSICAL ADAPTER PENDING |
+| High | Malicious/compromised issuer | Portable facts equal authoritative session | A valid issuer signature alone could attest altered genesis or token mint | Compare every immutable certificate field and recompute genesis before persistence | CLOSED FOR CLIENT DETECTION |
+| High | Reinstall with active prior session | No duplicate offline exposure | Wallet may reconnect after local deletion | Confirmed recovery decision executes before any entropy or creation call | CLOSED |
+| Medium | Crash between lifecycle steps | Partial session must not become offline-ready | Session may reserve collateral before local commit | Protected key written last; partial local state fails closed; lifecycle recovery/closure UX remains required | MITIGATED; RECOVERY UX PENDING |
+| Medium | Structural adapter impersonation | Wallet signatures correspond to authorized owner | Host port can be implemented incorrectly | Verify returned portable signature locally; transactions remain constrained by on-chain signer/account checks | CONCRETE MWA ADAPTER TEST PENDING |
+| Low | Issuer response from stale slot | Certificate represents registered authorization | Issuer could sign an earlier view | Require certificate `finalizedSlot >=` registered refetch context and exact registered hash | CLOSED IN CLIENT; SERVICE AUDIT PENDING |
+
 ## Remaining acceptance gates
 
-- connect the implemented recovery/provisioning controller to a real MWA transaction builder and certificate-issuer service on a supported cluster;
+- connect the implemented recovery/provisioning state machine to a concrete MWA transaction builder and deployed certificate-issuer service on a supported cluster;
 - connect the compiled MWA boundary on a supported cluster without storing wallet keys in the app;
 - implement the Solana RPC/relayer adapter behind the now-tested durable merchant queue and persist each returned queue state;
 - surface authoritative claim, settlement, and session-close states in Portuguese in both apps;

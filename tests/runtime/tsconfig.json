@@ -23,6 +23,7 @@
     "../../apps/payer-mobile/src/onchain-recovery-controller.ts",
     "../../apps/payer-mobile/src/onchain-recovery.ts",
     "../../apps/payer-mobile/src/payer-runtime.ts",
-    "../../apps/payer-mobile/src/session-access.ts"
+    "../../apps/payer-mobile/src/session-access.ts",
+    "../../apps/payer-mobile/src/session-provisioning.ts"
   ]
 }

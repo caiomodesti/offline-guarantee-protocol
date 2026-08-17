@@ -162,6 +162,9 @@ export function restoreOnchainSession(
 
   const base = { deviceSecretHex, deviceAuthorization, sessionCertificate, trustContext: context };
   const genesisParent = initialParent(base);
+  if (!equalBytes(genesisParent.stateHash, sessionCertificate.genesisStateHash)) {
+    throw new Error("genesis_state_hash do certificado não corresponde aos fatos da sessão");
+  }
   const runtime: PayerSessionRuntime = { ...base, initialParent: genesisParent };
   let parent = genesisParent;
   let credentials = [] as RestoredPayerSession["credentials"];
