@@ -37,6 +37,7 @@ mobile:
   physical_device_tested: true
   physical_offline_exchange_status: pass-network-disabled-2026-08-15
   physical_restart_matrix_status: open-nonblocking-hardening
+  production_fixture_separation_status: pass-source-graph-increment-8.7
 ```
 
 OGP is a custom collateral, authorization, evidence, reconciliation, and settlement protocol. It is not an AMM, lending market, oracle-priced product, Pix integration, or production payment network. Sprint 3 and its pinned SBF/validator runtime acceptance gate pass. Sprint 4 claim collection, Sprint 5 reconciliation, and Sprint 6 economic resolution are complete. Sprint 7's offline payer/merchant QR flow passed its core physical test. Sprint 8 normal reconnect/claim/settlement E2E is in progress, Bluetooth remains Sprint 11, and devnet remains Sprint 12.

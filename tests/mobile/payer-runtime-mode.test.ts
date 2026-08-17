@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { encodeSessionCertificate } from "@ogp/canonical-codec";
+import { loadDevelopmentSession } from "../../apps/payer-mobile/src/dev-session.js";
 import { bootstrapPayerRuntime, payerRuntimeMode } from "../../apps/payer-mobile/src/runtime-mode.js";
 
 describe("payer runtime mode boundary", () => {
@@ -15,7 +16,8 @@ describe("payer runtime mode boundary", () => {
   });
 
   it("loads the canonical Sprint 7 fixture only after explicit opt-in", () => {
-    const bootstrap = bootstrapPayerRuntime("development-fixture");
+    expect(() => bootstrapPayerRuntime("development-fixture")).toThrow(/fixture explícita/);
+    const bootstrap = bootstrapPayerRuntime("development-fixture", loadDevelopmentSession);
     expect(bootstrap.kind).toBe("ready");
     if (bootstrap.kind !== "ready") throw new Error("fixture bootstrap unexpectedly failed");
     expect(encodeSessionCertificate(bootstrap.runtime.sessionCertificate)).toHaveLength(554);

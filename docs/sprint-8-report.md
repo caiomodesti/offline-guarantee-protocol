@@ -146,11 +146,35 @@ No wallet private key enters the controller. Session/device nonces come from an 
 
 This increment implements and tests the orchestration contract, not the physical Android transport. The concrete MWA transaction builder and deployed issuer HTTP boundary remain open Sprint 8 integration gates and must not be described as completed.
 
+## Increment 8.7 — production/demo bundle separation
+
+The payer now has two physically distinct application entrypoints:
+
+```text
+package.json -> index.ts -> App.tsx
+                        -> on-chain mode fixed in source
+                        -> no dependency path to dev-session.ts
+
+package.development.json -> index.development.ts
+                         -> App.development.tsx
+                         -> explicit development-fixture loader
+```
+
+The production entrypoint no longer reads an Expo environment variable capable of selecting the Sprint 7 fixture. Its `App` always constructs `PayerApplication` with `configuredMode="on-chain"`. The runtime boundary also stopped importing `dev-session.ts`; a demonstration caller must provide its fixture loader explicitly or bootstrap fails.
+
+The historical Sprint 7 Android workflow switches to the isolated demonstration manifest before Expo prebuild. The production manifest remains the repository default. A dependency-graph regression test recursively follows relative ESM imports, maps compiled `.js` specifiers back to TypeScript sources, and proves:
+
+1. the production graph cannot reach `dev-session.ts`, `App.development.tsx`, or `index.development.ts`;
+2. the demonstration graph reaches the fixture intentionally;
+3. production and demonstration manifests are identical except for `main`, preventing dependency/configuration drift.
+
+No APK was generated. This increment closes source/build separation only; it does not claim the on-chain mobile integration is complete.
+
 ## Automated evidence
 
 ```text
-TypeScript / Vitest               92 PASS across 17 files
-Sprint 8 recovery/queue/adapter  53 PASS
+TypeScript / Vitest               94 PASS across 18 files
+Sprint 8 recovery/queue/adapter  55 PASS
 Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
 Independent Rust conformance       1 PASS
@@ -210,7 +234,7 @@ No APK was generated for this increment, as requested. The physically installed 
 |---|---|---|---|---|---|
 | High | Ordinary clear-data/reinstall | Local loss must never mint fresh offline capacity | The previous app always called `loadDevelopmentSession()` on boot | Default mode returns `ONLINE_RECOVERY_REQUIRED` before any fixture or protected key load | CLOSED IN APP BOOT |
 | High | Build misconfiguration | A typo must not enable development collateral/capacity | An implicit fallback could silently choose a demo path | Only exact `development-fixture` opts in; all unknown values throw | CLOSED |
-| High | Production artifact contains demonstration material | Fixture secrets must never become a production custody mechanism | Source still imports the Sprint 7 fixture module for the explicit historical demo build | Create distinct production/demo entrypoints and verify production bundle absence before mobile signoff | OPEN BUILD-SEPARATION GATE |
+| High | Production artifact contains demonstration material | Fixture secrets must never become a production custody mechanism | Source previously imported the Sprint 7 fixture module through the common runtime boundary | Distinct production/demo entrypoints; production dependency-graph exclusion test; historical workflow selects explicit demo manifest | CLOSED IN 8.7 |
 | Medium | Recovery UI overpromises functionality | A blocked screen is not on-chain recovery | Default mode currently has no live RPC/MWA controller behind it | UI states the requirement without offering a fake success path; controller remains a Sprint 8 gate | OPEN INTEGRATION GATE |
 
 ## Hostile audit — increment 8.5
@@ -236,6 +260,15 @@ No program instruction, economic policy, fork behavior, Bluetooth, dashboard, or
 | Medium | Crash between lifecycle steps | Partial session must not become offline-ready | Session may reserve collateral before local commit | Protected key written last; partial local state fails closed; lifecycle recovery/closure UX remains required | MITIGATED; RECOVERY UX PENDING |
 | Medium | Structural adapter impersonation | Wallet signatures correspond to authorized owner | Host port can be implemented incorrectly | Verify returned portable signature locally; transactions remain constrained by on-chain signer/account checks | CONCRETE MWA ADAPTER TEST PENDING |
 | Low | Issuer response from stale slot | Certificate represents registered authorization | Issuer could sign an earlier view | Require certificate `finalizedSlot >=` registered refetch context and exact registered hash | CLOSED IN CLIENT; SERVICE AUDIT PENDING |
+
+## Hostile audit — increment 8.7
+
+| Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
+|---|---|---|---|---|---|
+| High | Build-time environment mistake | Production must never embed fixture capacity or secrets | The prior common entrypoint accepted `EXPO_PUBLIC_OGP_RUNTIME_MODE=development-fixture` | Production mode fixed in source; demo uses a separate entrypoint and manifest | CLOSED |
+| High | Accidental re-import | A later refactor could make the fixture reachable again | Static source review alone is easy to miss | Recursive production dependency-graph regression test | CLOSED |
+| Medium | Production/demo manifest drift | Historical demo could test a different dependency set | Two manifests are necessary for Expo entry selection | Exact structural equality test except for `main` | CLOSED |
+| Medium | Test proves source reachability, not a signed APK's byte contents | Production artifact must exclude fixture bytes | No Sprint 8 production APK was requested | Add APK bundle string/content inspection when the production artifact is first built | OPEN ARTIFACT GATE |
 
 ## Remaining acceptance gates
 

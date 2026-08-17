@@ -12,7 +12,7 @@ import { createPersistedOnchainSession } from "./src/onchain-provisioning";
 import { evaluatePayerRecovery, type PayerRecoveryChainPort, type PayerRecoveryStoragePort } from "./src/onchain-recovery-controller";
 import { bytesToHex, hexToBytes, type PayerSessionRuntime } from "./src/payer-runtime";
 import { configuredTrustEnvironment } from "./src/runtime-configuration";
-import { bootstrapPayerRuntime, payerRuntimeMode, type PayerRuntimeMode } from "./src/runtime-mode";
+import { bootstrapPayerRuntime, type PayerRuntimeMode } from "./src/runtime-mode";
 
 const transport = new QRTransport();
 const DEVICE_KEY_STORAGE = "ogp.session.c3.device-key";
@@ -72,7 +72,12 @@ function Action({ label, onPress, secondary = false, disabled = false }: { label
   return <TouchableOpacity disabled={disabled} onPress={onPress} style={[styles.action, secondary && styles.actionSecondary, disabled && styles.disabled]}><Text style={[styles.actionText, secondary && styles.actionTextSecondary]}>{label}</Text></TouchableOpacity>;
 }
 
-export default function App() {
+interface PayerApplicationProps {
+  readonly configuredMode: PayerRuntimeMode;
+  readonly loadDevelopmentRuntime?: () => PayerSessionRuntime;
+}
+
+export function PayerApplication({ configuredMode, loadDevelopmentRuntime }: PayerApplicationProps) {
   const [screen, setScreen] = useState<Screen>("home");
   const [sessionRuntime, setSessionRuntime] = useState<PayerSessionRuntime | null>(null);
   const [runtimeMode, setRuntimeMode] = useState<PayerRuntimeMode | null>(null);
@@ -88,7 +93,7 @@ export default function App() {
 
   useEffect(() => {
     void (async () => {
-      const mode = payerRuntimeMode(process.env.EXPO_PUBLIC_OGP_RUNTIME_MODE);
+      const mode = configuredMode;
       setRuntimeMode(mode);
       if (mode === "on-chain") {
         const expected = configuredTrustEnvironment({
@@ -118,7 +123,7 @@ export default function App() {
         return;
       }
 
-      const bootstrap = bootstrapPayerRuntime(mode);
+      const bootstrap = bootstrapPayerRuntime(mode, loadDevelopmentRuntime);
       if (bootstrap.kind !== "ready") throw new Error("fixture de desenvolvimento indisponível");
       const runtime = bootstrap.runtime;
       const existing = await SecureStore.getItemAsync(DEVICE_KEY_STORAGE);
@@ -145,7 +150,7 @@ export default function App() {
       setParent(restoredParent);
       setBootstrapStatus("ready");
     })().catch((reason: unknown) => { setError(errorText(reason)); setBootstrapStatus("online-recovery-required"); });
-  }, []);
+  }, [configuredMode, loadDevelopmentRuntime]);
 
   const persistBranchState = async (frames: readonly string[], pendingDelivery: boolean, nextParent: ParentState) => {
     if (sessionRuntime === null) throw new Error("Sessão de pagamento indisponível");
@@ -266,6 +271,11 @@ export default function App() {
       <Action label="CONCLUIR" onPress={() => { setChallenge(null); setLastCredential(null); setOutgoingFrames([]); setScreen("home"); }} />
     </>}
   </ScrollView></SafeAreaView>;
+}
+
+/** Production entrypoint: environment variables cannot opt this bundle into fixtures. */
+export default function App() {
+  return <PayerApplication configuredMode="on-chain" />;
 }
 
 const styles = StyleSheet.create({

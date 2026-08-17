@@ -56,6 +56,10 @@ jobs:
       - name: Build shared protocol packages
         run: corepack pnpm build
 
+      - name: Select the isolated historical payer demonstration entrypoint
+        if: matrix.app == 'payer-mobile'
+        run: cp apps/payer-mobile/package.development.json apps/payer-mobile/package.json
+
       - name: Generate Android native project
         run: corepack pnpm --filter "${{ matrix.app }}" exec expo prebuild --platform android --no-install --clean
 
@@ -64,8 +68,6 @@ jobs:
       # The release remains debug-key signed and is not a production release.
       - name: Compile arm64 standalone preview APK
         working-directory: apps/${{ matrix.app }}/android
-        env:
-          EXPO_PUBLIC_OGP_RUNTIME_MODE: development-fixture
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
 
       - name: Verify signature, manifest, ABI, embedded bundle and SHA-256

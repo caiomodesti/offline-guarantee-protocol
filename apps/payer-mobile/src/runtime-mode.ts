@@ -1,4 +1,3 @@
-import { loadDevelopmentSession } from "./dev-session";
 import type { PayerSessionRuntime } from "./payer-runtime";
 
 export type PayerRuntimeMode = "on-chain" | "development-fixture";
@@ -30,9 +29,10 @@ export function payerRuntimeMode(value: string | undefined): PayerRuntimeMode {
  */
 export function bootstrapPayerRuntime(
   value: string | undefined,
-  loadFixture: () => PayerSessionRuntime = loadDevelopmentSession,
+  loadFixture?: () => PayerSessionRuntime,
 ): PayerRuntimeBootstrap {
   const mode = payerRuntimeMode(value);
   if (mode === "on-chain") return { kind: "online-recovery-required", mode };
+  if (loadFixture === undefined) throw new Error("a entrada de demonstração não forneceu uma fixture explícita");
   return { kind: "ready", mode, runtime: loadFixture() };
 }
