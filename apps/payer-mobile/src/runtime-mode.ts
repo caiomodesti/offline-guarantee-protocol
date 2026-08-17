@@ -1,4 +1,5 @@
-import { loadDevelopmentSession, type DevelopmentSession } from "./dev-session";
+import { loadDevelopmentSession } from "./dev-session";
+import type { PayerSessionRuntime } from "./payer-runtime";
 
 export type PayerRuntimeMode = "on-chain" | "development-fixture";
 
@@ -6,7 +7,7 @@ export type PayerRuntimeBootstrap =
   | {
       readonly kind: "ready";
       readonly mode: "development-fixture";
-      readonly runtime: DevelopmentSession;
+      readonly runtime: PayerSessionRuntime;
     }
   | {
       readonly kind: "online-recovery-required";
@@ -29,7 +30,7 @@ export function payerRuntimeMode(value: string | undefined): PayerRuntimeMode {
  */
 export function bootstrapPayerRuntime(
   value: string | undefined,
-  loadFixture: () => DevelopmentSession = loadDevelopmentSession,
+  loadFixture: () => PayerSessionRuntime = loadDevelopmentSession,
 ): PayerRuntimeBootstrap {
   const mode = payerRuntimeMode(value);
   if (mode === "on-chain") return { kind: "online-recovery-required", mode };

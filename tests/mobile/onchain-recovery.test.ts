@@ -43,6 +43,7 @@ describe("confirmed Solana recovery account adapter", () => {
       confirmed: true,
       expectedProgramId: program,
       expectedProfileAddress: profileAddress,
+      expectedOwner: bytes(0x22),
       profile: account(profileAddress, program, profileData(sessionAddress)),
       session: account(sessionAddress, program, sessionData()),
     });
@@ -64,6 +65,7 @@ describe("confirmed Solana recovery account adapter", () => {
       confirmed: true,
       expectedProgramId: program,
       expectedProfileAddress: profileAddress,
+      expectedOwner: bytes(0x22),
       profile: account(profileAddress, program, profileData(bytes(0))),
       session: null,
     })).toMatchObject({ activeSessionAccount: null, sessionId: null, offlineAccessEnabled: true });
@@ -74,6 +76,7 @@ describe("confirmed Solana recovery account adapter", () => {
       confirmed: true,
       expectedProgramId: program,
       expectedProfileAddress: profileAddress,
+      expectedOwner: bytes(0x22),
       profile: account(profileAddress, program, profileData(sessionAddress)),
       session: account(sessionAddress, program, sessionData()),
     };
@@ -81,6 +84,8 @@ describe("confirmed Solana recovery account adapter", () => {
       .toThrow(/owner program mismatch/);
     expect(() => authoritativeRecoveryFromAccounts({ ...base, profile: account(bytes(0x88), program, profileData(sessionAddress)) }))
       .toThrow(/address mismatch/);
+    expect(() => authoritativeRecoveryFromAccounts({ ...base, expectedOwner: bytes(0x77) }))
+      .toThrow(/owner mismatch/);
     expect(() => authoritativeRecoveryFromAccounts({ ...base, session: null })).toThrow(/requires its OfflineSession/);
   });
 
@@ -89,6 +94,7 @@ describe("confirmed Solana recovery account adapter", () => {
       confirmed: true,
       expectedProgramId: program,
       expectedProfileAddress: profileAddress,
+      expectedOwner: bytes(0x22),
       profile: account(profileAddress, program, profileData(sessionAddress, false)),
       session: account(sessionAddress, program, sessionData(1)),
     });
@@ -96,4 +102,3 @@ describe("confirmed Solana recovery account adapter", () => {
     expect(recovery.sessionStatus).toBe("claim-window");
   });
 });
-

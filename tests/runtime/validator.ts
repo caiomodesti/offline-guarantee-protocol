@@ -16,6 +16,10 @@ import { derivePublicKey, generateSecretKey, hashSha256, signEd25519 } from "@og
 import { NetworkId, ObjectType, type DomainContext, type PaymentCredentialPayload, type PaymentState, type ProtocolTrustContext } from "@ogp/shared-types";
 import { createClaimSubmissionMaterial, decodeClaim, decodeStateEdgeRecord } from "@ogp/protocol-sdk";
 import { QRTransport, validateMerchantResponse } from "@ogp/transports";
+import { createConfirmedRecoveryPort } from "../../apps/payer-mobile/src/confirmed-recovery-port.js";
+import { createPersistedOnchainSession } from "../../apps/payer-mobile/src/onchain-provisioning.js";
+import { evaluatePayerRecovery, type PayerRecoveryStoragePort } from "../../apps/payer-mobile/src/onchain-recovery-controller.js";
+import { bytesToHex } from "../../apps/payer-mobile/src/payer-runtime.js";
 import BN from "bn.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -997,6 +1001,70 @@ const normalCertificate = signSessionCertificate({
   finalizedSlot: BigInt(await connection.getSlot("confirmed")),
   certificateNonce: Uint8Array.from(nonzero(123)),
 }, certificateIssuer.secretKey.slice(0, 32));
+
+const normalInitialParent = {
+  stateHash: Uint8Array.from(normalSessionState.genesisStateHash),
+  sequence: 0,
+  remaining: 100n,
+};
+const normalPersisted = createPersistedOnchainSession({
+  sessionAccount: normalSession.toBytes(),
+  runtime: {
+    deviceSecretHex: bytesToHex(normalDeviceSecret),
+    deviceAuthorization: normalAuthorization,
+    sessionCertificate: normalCertificate,
+    trustContext: normalTrustContext,
+    initialParent: normalInitialParent,
+  },
+});
+const normalRecoveryStorage: PayerRecoveryStoragePort = {
+  load: async () => ({
+    provisioningJson: normalPersisted.provisioningJson,
+    branchStateJson: normalPersisted.branchStateJson,
+    deviceSecretHex: normalPersisted.deviceSecretHex,
+  }),
+  writeBranchState: async () => undefined,
+  writeProvisioning: async () => undefined,
+  writeProtectedDeviceSecret: async () => undefined,
+};
+const normalRecoveryPort = createConfirmedRecoveryPort(
+  program.programId.toBytes(),
+  {
+    profileAddress: (owner) => profilePda(new PublicKey(owner)).toBytes(),
+  },
+  {
+    getConfirmedAccount: async (address, minContextSlot) => {
+      const configWithContext = minContextSlot === null
+        ? { commitment: "confirmed" as const }
+        : { commitment: "confirmed" as const, minContextSlot: Number(minContextSlot) };
+      const response = await connection.getAccountInfoAndContext(new PublicKey(address), configWithContext);
+      if (response.value === null) return null;
+      return {
+        contextSlot: BigInt(response.context.slot),
+        account: {
+          address,
+          ownerProgramId: response.value.owner.toBytes(),
+          data: response.value.data,
+        },
+      };
+    },
+  },
+);
+const normalRecovered = await evaluatePayerRecovery({
+  connected: true,
+  walletOwnerHex: bytesToHex(normalUser.owner.publicKey.toBytes()),
+  expectedEnvironment: {
+    networkId: normalTrustContext.networkId,
+    clusterGenesisHash: normalTrustContext.clusterGenesisHash,
+    programId: normalTrustContext.programId,
+    trustedCertificateIssuer: normalTrustContext.trustedCertificateIssuer,
+  },
+}, normalRecoveryStorage, normalRecoveryPort);
+assert.equal(normalRecovered.decision.outcome, "offline-ready");
+assert(normalRecovered.restoredSession !== null);
+assert.equal(normalRecovered.restoredSession.confirmedSessionSlot, normalCertificate.finalizedSlot.toString());
+assert.deepEqual(Array.from(normalRecovered.restoredSession.parent.stateHash), Array.from(normalSessionState.genesisStateHash));
+pass("Sprint 8 confirmed mobile recovery controller", "signed persisted material was revalidated and matched against confirmed UserProfile/OfflineSession runtime accounts before offline-ready");
 
 const normalMerchant = Keypair.generate();
 const normalMerchantDevice = derivePublicKey(generateSecretKey());

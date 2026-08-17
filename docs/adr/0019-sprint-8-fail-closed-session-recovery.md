@@ -50,3 +50,15 @@ This prevents ordinary Android data clearing, reinstall, and partial backup rest
 - Merchant settlement does not depend on payer recovery; a merchant or relayer may submit retained evidence before `claim_submission_deadline`.
 - Recovery UX must explain the blocked prior session in Portuguese and must not promise that reinstalling cancels payments.
 - Future account-abstraction or hardware-attested recovery may improve availability without weakening this fail-closed rule.
+
+## Implementation record — increment 8.5
+
+The on-device production record is split into three independently loaded components:
+
+1. signed public provisioning material (`DeviceAuthorization`, `SessionCertificate`, session account, issuer-attested confirmed slot);
+2. authenticated local branch state (session ID, state hash, sequence, remaining amount, complete QR proof frames, delivery state);
+3. the per-session device secret in protected storage.
+
+The controller revalidates the configured network/genesis/program/issuer domain, both signatures, authorization hash, economic/time constraints, protected-key binding, full credential chain, stored final state, and confirmed Solana profile/session bindings. A partial write or partial restore is never usable offline. New provisioning commits the branch and signed public record before the protected key; interruption at any point therefore remains fail-closed.
+
+`walletOwner` enters the controller only after explicit wallet authorization. The controller does not store or accept a wallet private key. A confirmed profile with an active session blocks reprovisioning even when all local material was deleted.

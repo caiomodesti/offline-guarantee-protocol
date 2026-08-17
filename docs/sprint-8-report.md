@@ -106,17 +106,35 @@ An unknown or misspelled runtime mode fails instead of falling back. The existin
 
 This increment closes the automatic-fixture boot hazard but does not pretend online recovery is already implemented. The production screen says in Portuguese that connectivity, confirmed chain recovery, and wallet authorization are required. The next Sprint 8 increment must place the real recovery/provisioning controller behind this boundary.
 
+## Increment 8.5 — signed recovery controller and confirmed account port
+
+The default payer path now understands a production-format session instead of only displaying a blocked screen. Offline readiness requires all three durable components:
+
+```text
+signed provisioning record
++ authenticated branch record
++ protected per-session device key
+→ complete cryptographic revalidation
+→ OFFLINE_READY
+```
+
+The controller validates the configured network, cluster genesis, program ID and certificate issuer; exact canonical authorization/certificate sizes; wallet and issuer signatures; authorization hash; 300%/time/deadline invariants; protected key binding; session/branch identity; and the complete QR credential chain. Editable local `remaining`, sequence, state hash, frames, confirmation slot, account identifiers or partial storage cannot create capacity.
+
+When connected, an injected confirmed-account port reads the profile first and any active session at the same or newer RPC context. It rejects owner, PDA address, program owner and stale-context substitution before calling the access decision engine. With no local material, the chain is not queried until an explicit wallet owner is supplied. A surviving active session blocks reprovisioning; a free confirmed profile produces `NEW_SESSION_ALLOWED`, not a session or balance.
+
+The validator normal path now serializes the real signed material created from its confirmed session, passes it through the mobile persistence/controller code, refetches the real `UserProfile` and `OfflineSession`, and proves `OFFLINE_READY` only after all bindings match. Wallet keys remain outside the controller; the runtime harness supplies an injected test signer while physical MWA remains a later Sprint 8 gate on a supported cluster.
+
 ## Automated evidence
 
 ```text
-TypeScript / Vitest               74 PASS across 12 files
-Sprint 8 recovery/queue/adapter  35 PASS
+TypeScript / Vitest               89 PASS across 16 files
+Sprint 8 recovery/queue/adapter  50 PASS
 Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
 Independent Rust conformance       1 PASS
 Solana program Rust tests         16 PASS
 Real SBF build                     PASS (587,232 bytes)
-Validator/runtime assertions       37 PASS
+Validator/runtime assertions       38 PASS
 Sprint 8 claim submit compute      39,222 CU
 Sprint 8 SPL settlement compute    36,890 CU
 Sprint 8 session close compute      9,304 CU
@@ -173,11 +191,22 @@ No APK was generated for this increment, as requested. The physically installed 
 | High | Production artifact contains demonstration material | Fixture secrets must never become a production custody mechanism | Source still imports the Sprint 7 fixture module for the explicit historical demo build | Create distinct production/demo entrypoints and verify production bundle absence before mobile signoff | OPEN BUILD-SEPARATION GATE |
 | Medium | Recovery UI overpromises functionality | A blocked screen is not on-chain recovery | Default mode currently has no live RPC/MWA controller behind it | UI states the requirement without offering a fake success path; controller remains a Sprint 8 gate | OPEN INTEGRATION GATE |
 
+## Hostile audit — increment 8.5
+
+| Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
+|---|---|---|---|---|---|
+| Critical | Ordinary local edit | Local storage must not mint capacity | `remaining`, sequence and state hash are editable JSON | Recompute genesis/full credential chain and require exact equality with stored final state | CLOSED |
+| High | Partial backup or interrupted write | Incomplete recovery must not become spendable | AsyncStorage and SecureStore are not one atomic database | Three-component completeness gate; protected key written last; every partial state returns recovery-required | CLOSED IN CONTROLLER |
+| High | RPC/account substitution | Only configured program state may authorize recovery | Malicious RPC may return another profile/session or stale session | Verify requested address, program owner, profile owner and same-or-newer confirmed context before strict account decoding | CLOSED IN PORT; MULTI-RPC/LIGHT-CLIENT TRUST REMAINS |
+| High | Wallet substitution | Another wallet must not adopt the local session | Wallet address and local certificate owner can diverge | Reject mismatch before any chain request; wallet private key never enters controller/storage | CLOSED |
+| High | Forged deployment/issuer configuration | Self-signed certificate could look locally valid | Trusting issuer embedded in certificate would be circular | Require external public network/genesis/program/issuer roots; missing or malformed roots fail closed | CLOSED IN CONFIG; DEPLOYMENT DISTRIBUTION OPEN |
+| Medium | Rooted device restores a complete old snapshot | Branch monotonicity cannot be proven in ordinary storage | Attacker may restore valid key plus valid historical chain | Economic cap, merchant claims, fork reconciliation and revocation; controlled proof remains Sprint 9 | OPEN RISK; CHRONOLOGY UNCHANGED |
+
 No program instruction, economic policy, fork behavior, Bluetooth, dashboard, or devnet behavior was added or reordered by this increment. The tests exercise already authorized claim/finalization/settlement functionality to prove the original Sprint 8 normal path.
 
 ## Remaining acceptance gates
 
-- implement the production online recovery/provisioning controller behind the new default fail-closed runtime boundary;
+- connect the implemented recovery/provisioning controller to a real MWA transaction builder and certificate-issuer service on a supported cluster;
 - connect the compiled MWA boundary on a supported cluster without storing wallet keys in the app;
 - implement the Solana RPC/relayer adapter behind the now-tested durable merchant queue and persist each returned queue state;
 - surface authoritative claim, settlement, and session-close states in Portuguese in both apps;

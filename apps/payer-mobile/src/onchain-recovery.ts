@@ -16,6 +16,7 @@ export interface RecoveryAccountSnapshot {
   readonly confirmed: boolean;
   readonly expectedProgramId: Uint8Array;
   readonly expectedProfileAddress: Uint8Array;
+  readonly expectedOwner: Uint8Array;
   readonly profile: RawProgramAccount;
   readonly session: RawProgramAccount | null;
 }
@@ -54,6 +55,7 @@ function sessionState(session: DecodedOfflineSession): Pick<AuthoritativeRecover
 export function authoritativeRecoveryFromAccounts(snapshot: RecoveryAccountSnapshot): AuthoritativeRecoveryState {
   assertOwnedAccount(snapshot.profile, snapshot.expectedProfileAddress, snapshot.expectedProgramId, "UserProfile");
   const profile = decodeUserProfile(snapshot.profile.data);
+  if (!equalBytes(profile.owner, snapshot.expectedOwner)) throw new Error("UserProfile owner mismatch");
 
   if (isZero(profile.activeSession)) {
     if (snapshot.session !== null) throw new Error("unexpected OfflineSession for a profile without active_session");
@@ -82,4 +84,3 @@ export function authoritativeRecoveryFromAccounts(snapshot: RecoveryAccountSnaps
     ...sessionState(session),
   };
 }
-
