@@ -36,7 +36,9 @@ mobile:
   standalone_preview_status: pass-payer-fixture-run-31848322396
   physical_device_tested: true
   physical_offline_exchange_status: pass-network-disabled-2026-08-15
-  physical_restart_matrix_status: open-nonblocking-hardening
+  physical_restart_matrix_status: blocked-h0-no-adb-and-live-recovery-adapter
+  production_metro_hermes_bundle_status: pass-h0-2026-08-17
+  production_android_apk_workflow_status: pushed-pending-private-ci
   production_fixture_separation_status: pass-source-graph-increment-8.7
   merchant_rpc_relayer_port_status: pass-source-increment-8.8
   merchant_durable_sync_ui_status: pass-source-increment-8.9
