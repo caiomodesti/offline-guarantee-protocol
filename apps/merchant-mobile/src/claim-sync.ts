@@ -27,6 +27,8 @@ export interface ClaimQueueSyncResult {
   readonly failed: number;
 }
 
+export type PersistClaimQueue = (claims: readonly StoredClaim[]) => Promise<void>;
+
 function lifecycleStatus(status: AuthoritativeClaimStatus): ClaimLifecycleStatus {
   if (status === "settled") return "settled";
   if (status === "rejected") return "rejected";
@@ -106,7 +108,12 @@ export async function syncStoredClaim(claim: StoredClaim, port: ClaimSubmissionP
 }
 
 /** Processes every eligible proof in deterministic hash order without allowing one failure to starve the rest. */
-export async function syncClaimQueue(claims: readonly StoredClaim[], connected: boolean, port: ClaimSubmissionPort): Promise<ClaimQueueSyncResult> {
+export async function syncClaimQueue(
+  claims: readonly StoredClaim[],
+  connected: boolean,
+  port: ClaimSubmissionPort,
+  persist?: PersistClaimQueue,
+): Promise<ClaimQueueSyncResult> {
   if (!connected) return { claims: [...claims], attempted: 0, confirmed: 0, failed: 0 };
 
   const updates = new Map<string, StoredClaim>();
@@ -121,6 +128,9 @@ export async function syncClaimQueue(claims: readonly StoredClaim[], connected: 
     attempted += 1;
     const updated = await syncStoredClaim(claim, port);
     updates.set(claim.credentialHash, updated);
+    if (persist !== undefined) {
+      await persist(claims.map((item) => updates.get(item.credentialHash) ?? item));
+    }
     if (updated.status === "pending-submission") failed += 1;
     else confirmed += 1;
   }

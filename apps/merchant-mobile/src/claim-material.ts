@@ -9,6 +9,14 @@ export interface StoredClaimTrust extends OfflineTrustEnvironment {
   readonly merchantDeviceKey: Uint8Array;
 }
 
+export interface StoredClaimEvidence {
+  readonly material: ClaimSubmissionMaterial;
+  readonly owner: Uint8Array;
+  readonly sessionId: Uint8Array;
+  readonly merchant: Uint8Array;
+  readonly amount: bigint;
+}
+
 function bytesToHex(value: Uint8Array): string {
   return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -17,7 +25,7 @@ function bytesToHex(value: Uint8Array): string {
  * Revalidates durable QR evidence and derives the exact on-chain claim bytes.
  * Nothing is reconstructed from editable display metadata.
  */
-export function materializeStoredClaim(claim: StoredClaim, trust: StoredClaimTrust): ClaimSubmissionMaterial {
+export function materializeStoredClaimEvidence(claim: StoredClaim, trust: StoredClaimTrust): StoredClaimEvidence {
   const bundle = new QRTransport().receiveCredential(claim.frames);
   const credential = bundle.credentials.at(-1);
   if (credential === undefined) throw new Error("prova armazenada não contém credencial");
@@ -31,5 +39,15 @@ export function materializeStoredClaim(claim: StoredClaim, trust: StoredClaimTru
   const material = createClaimSubmissionMaterial(credential);
   if (bytesToHex(credentialHash(credential)) !== claim.credentialHash) throw new Error("credential hash da prova armazenada divergente");
   if (bytesToHex(material.credentialHash) !== claim.credentialHash) throw new Error("claim material não corresponde à prova armazenada");
-  return material;
+  return {
+    material,
+    owner: bundle.sessionCertificate.owner.slice(),
+    sessionId: credential.sessionId.slice(),
+    merchant: credential.merchant.slice(),
+    amount: credential.amount,
+  };
+}
+
+export function materializeStoredClaim(claim: StoredClaim, trust: StoredClaimTrust): ClaimSubmissionMaterial {
+  return materializeStoredClaimEvidence(claim, trust).material;
 }

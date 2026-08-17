@@ -83,6 +83,9 @@ importers:
       '@react-native-async-storage/async-storage':
         specifier: 2.2.0
         version: 2.2.0(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.3)(supports-color@8.1.1)(utf-8-validate@6.0.6))
+      '@solana/web3.js':
+        specifier: 1.98.4
+        version: 1.98.4(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@6.0.6)
       expo:
         specifier: ~57.0.12
         version: 57.0.12(@babel/core@7.29.7(supports-color@8.1.1))(@expo/dom-webview@57.0.1)(bufferutil@4.1.0)(react-native@0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.18)(bufferutil@4.1.0)(react@19.2.3)(supports-color@8.1.1)(utf-8-validate@6.0.6))(react@19.2.3)(supports-color@8.1.1)(typescript@6.0.3)(utf-8-validate@6.0.6)
@@ -4614,6 +4617,11 @@ snapshots:
       '@solana/errors': 2.0.0-rc.1(typescript@7.0.2)
       typescript: 7.0.2
 
+  '@solana/codecs-core@2.3.0(typescript@6.0.3)':
+    dependencies:
+      '@solana/errors': 2.3.0(typescript@6.0.3)
+      typescript: 6.0.3
+
   '@solana/codecs-core@2.3.0(typescript@7.0.2)':
     dependencies:
       '@solana/errors': 2.3.0(typescript@7.0.2)
@@ -4631,6 +4639,12 @@ snapshots:
       '@solana/codecs-core': 2.0.0-rc.1(typescript@7.0.2)
       '@solana/errors': 2.0.0-rc.1(typescript@7.0.2)
       typescript: 7.0.2
+
+  '@solana/codecs-numbers@2.3.0(typescript@6.0.3)':
+    dependencies:
+      '@solana/codecs-core': 2.3.0(typescript@6.0.3)
+      '@solana/errors': 2.3.0(typescript@6.0.3)
+      typescript: 6.0.3
 
   '@solana/codecs-numbers@2.3.0(typescript@7.0.2)':
     dependencies:
@@ -4662,6 +4676,12 @@ snapshots:
       chalk: 5.6.2
       commander: 12.1.0
       typescript: 7.0.2
+
+  '@solana/errors@2.3.0(typescript@6.0.3)':
+    dependencies:
+      chalk: 5.6.2
+      commander: 14.0.3
+      typescript: 6.0.3
 
   '@solana/errors@2.3.0(typescript@7.0.2)':
     dependencies:
@@ -4708,6 +4728,29 @@ snapshots:
       - bufferutil
       - encoding
       - fastestsmallesttextencoderdecoder
+      - typescript
+      - utf-8-validate
+
+  '@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@6.0.6)':
+    dependencies:
+      '@babel/runtime': 7.29.7
+      '@noble/curves': 1.9.7
+      '@noble/hashes': 1.8.0
+      '@solana/buffer-layout': 4.0.1
+      '@solana/codecs-numbers': 2.3.0(typescript@6.0.3)
+      agentkeepalive: 4.6.0
+      bn.js: 5.2.5
+      borsh: 0.7.0
+      bs58: 4.0.1
+      buffer: 6.0.3
+      fast-stable-stringify: 1.0.0
+      jayson: 4.3.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+      node-fetch: 2.7.0
+      rpc-websockets: 9.3.9
+      superstruct: 2.0.2
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
       - typescript
       - utf-8-validate
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { credentialHash } from "@ogp/credentials";
 import { QRTransport } from "@ogp/transports";
 import { createStoredClaim, type StoredClaim } from "../../apps/merchant-mobile/src/claim-history.js";
-import { materializeStoredClaim } from "../../apps/merchant-mobile/src/claim-material.js";
+import { materializeStoredClaim, materializeStoredClaimEvidence } from "../../apps/merchant-mobile/src/claim-material.js";
 import { makeFixture } from "../crypto/fixture.js";
 
 const hex = (value: Uint8Array): string => Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -40,6 +40,19 @@ describe("merchant durable claim material", () => {
     expect(material.payload).toHaveLength(410);
     expect(material.payerSignature).toHaveLength(64);
     expect(hex(material.credentialHash)).toBe(claim.credentialHash);
+
+    const evidence = materializeStoredClaimEvidence(claim, {
+      networkId: fixture.context.networkId,
+      clusterGenesisHash: fixture.context.clusterGenesisHash,
+      programId: fixture.context.programId,
+      trustedCertificateIssuer: fixture.context.trustedCertificateIssuer,
+      merchant: fixture.credential.merchant,
+      merchantDeviceKey: fixture.credential.merchantDeviceKey,
+    });
+    expect(evidence.owner).toEqual(fixture.certificate.owner);
+    expect(evidence.sessionId).toEqual(fixture.credential.sessionId);
+    expect(evidence.merchant).toEqual(fixture.credential.merchant);
+    expect(evidence.amount).toBe(50n);
   });
 
   it("rejects editable metadata or merchant substitution", () => {

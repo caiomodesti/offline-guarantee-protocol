@@ -123,4 +123,20 @@ describe("merchant reconnect claim queue", () => {
     expect(result.claims.find((item) => item.credentialHash === first.credentialHash)?.status).toBe("pending-submission");
     expect(result.claims.find((item) => item.credentialHash === second.credentialHash)?.status).toBe("settled");
   });
+
+  it("persists every processed queue state before advancing to the next proof", async () => {
+    const first = claim("a");
+    const second = claim("b");
+    const persisted: (readonly StoredClaim[])[] = [];
+    const adapter = port({ lookupConfirmedClaim: vi.fn(async (current) => snapshot(current, "valid")) });
+
+    await syncClaimQueue([second, first], true, adapter, async (claims) => {
+      persisted.push(claims.map((item) => ({ ...item })));
+    });
+
+    expect(persisted).toHaveLength(2);
+    expect(persisted[0]?.find((item) => item.credentialHash === first.credentialHash)?.status).toBe("submitted");
+    expect(persisted[0]?.find((item) => item.credentialHash === second.credentialHash)?.status).toBe("pending-submission");
+    expect(persisted[1]?.every((item) => item.status === "submitted")).toBe(true);
+  });
 });

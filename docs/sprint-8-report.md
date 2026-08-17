@@ -170,11 +170,33 @@ The historical Sprint 7 Android workflow switches to the isolated demonstration 
 
 No APK was generated. This increment closes source/build separation only; it does not claim the on-chain mobile integration is complete.
 
+## Increment 8.8 — concrete merchant RPC/relayer port
+
+The merchant now has a concrete Solana adapter behind the durable claim queue. Its trust boundary is deliberately split:
+
+```text
+stored QR frames
+→ full portable-proof revalidation
+→ exact 410-byte payload + 64-byte payer signature + credential hash
+→ session/claim PDA derivation from signed owner/session/hash
+→ untrusted HTTP relayer submits the evidence
+→ merchant polls Solana at confirmed commitment
+→ strict program-owned Claim decode
+→ exact session PDA / hash / merchant / amount match
+→ only then may local history advance
+```
+
+The relayer request identifies protocol version, network, genesis hash, program, session PDA, claim PDA and signed merchant, but it cannot choose a different economic destination or manufacture success. Extra response fields are discarded; only a syntactically valid transaction signature is retained temporarily, and that signature alone never advances claim status. The adapter independently verifies the RPC genesis hash, account owner, frozen discriminator/size and every economically relevant signed field.
+
+Queue processing remains deterministic by credential hash and now accepts a persistence boundary after every processed proof. If durable persistence fails, processing stops before another proof is attempted, preventing a successful observation from existing only in volatile memory. All endpoints require HTTPS, except explicit loopback HTTP for local development; wallet and relayer private keys are absent from the app.
+
+This is source-level production integration, not a claim that a relayer service is deployed. The current installed Sprint 7 APK is unchanged, and no APK was generated. App-screen wiring, endpoint distribution, deadline UX and a two-phone physical reconnect remain Sprint 8 acceptance gates.
+
 ## Automated evidence
 
 ```text
-TypeScript / Vitest               94 PASS across 18 files
-Sprint 8 recovery/queue/adapter  55 PASS
+TypeScript / Vitest              101 PASS across 19 files
+Sprint 8 recovery/queue/adapter  62 PASS
 Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
 Independent Rust conformance       1 PASS
@@ -270,11 +292,22 @@ No program instruction, economic policy, fork behavior, Bluetooth, dashboard, or
 | Medium | Production/demo manifest drift | Historical demo could test a different dependency set | Two manifests are necessary for Expo entry selection | Exact structural equality test except for `main` | CLOSED |
 | Medium | Test proves source reachability, not a signed APK's byte contents | Production artifact must exclude fixture bytes | No Sprint 8 production APK was requested | Add APK bundle string/content inspection when the production artifact is first built | OPEN ARTIFACT GATE |
 
+## Hostile audit — increment 8.8
+
+| Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
+|---|---|---|---|---|---|
+| High | Malicious or wrong-cluster RPC | Only the intended deployment can establish claim truth | An owned byte layout is insufficient if fetched from another cluster/program | Verify configured program equals signed domain, RPC genesis hash, account owner, exact discriminator/size and derived PDA | CLOSED IN ADAPTER; MULTI-RPC TRUST REMAINS |
+| High | Dishonest relayer response | Local status must follow on-chain state, not backend assertions | Relayer can return a signature plus fabricated `settled` text | Discard all fields except validated signature; confirm and refetch the exact Claim account before advancing | CLOSED |
+| High | Relayer/account substitution | Signed merchant and credential must remain immutable | Backend controls transaction construction and auxiliary claim-order accounts | Send exact revalidated proof; derive expected session/claim PDAs locally; compare on-chain hash, session, merchant and amount | CLOSED; PROGRAM CONSTRAINTS REMAIN FINAL |
+| Medium | Crash after one successful queue item | Confirmed observation must survive before processing the next claim | Batch result previously persisted only at caller discretion after the full loop | Await injected durable persistence after each deterministic queue update | CLOSED IN QUEUE; APP STORAGE WIRING PENDING |
+| Medium | Relayer censorship or outage near deadline | Timely valid evidence should be submit-able | A single configured service can refuse or disappear | Relayer is replaceable and evidence remains portable; expose deadline and add fallback endpoints before physical acceptance | OPEN INTEGRATION RISK |
+| Medium | RPC serves stale confirmed view | UI may lag current settlement status | Confirmed is not finalized and one provider can lag | Record observation slot honestly; idempotent refetch; add refresh/fallback RPC policy | MITIGATED; LIVE POLICY PENDING |
+
 ## Remaining acceptance gates
 
 - connect the implemented recovery/provisioning state machine to a concrete MWA transaction builder and deployed certificate-issuer service on a supported cluster;
 - connect the compiled MWA boundary on a supported cluster without storing wallet keys in the app;
-- implement the Solana RPC/relayer adapter behind the now-tested durable merchant queue and persist each returned queue state;
+- wire the concrete Solana RPC/relayer port into merchant AsyncStorage/UI with deployment endpoints, deadline urgency and a replaceable relayer policy;
 - surface authoritative claim, settlement, and session-close states in Portuguese in both apps;
 - physically test clear-data/reinstall against authoritative active-session state so it cannot create new exposure;
 - run the complete two-phone normal path again after those app integrations.

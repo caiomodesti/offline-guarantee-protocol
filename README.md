@@ -229,7 +229,7 @@ Use the [two-device installation and offline test](docs/sprint-7-device-test.md)
 
 Full evidence: [Sprint 7 report](docs/sprint-7-report.md).
 
-Sprint 8 is now in progress. Its first source-only increment adds strict `UserProfile`/`OfflineSession` account decoding and a fail-closed recovery gate that distinguishes the session PDA from the protocol `session_id`, honors profile revocation, rejects fixture provisioning, and blocks fresh exposure after local data loss while an old session remains active. No new APK was produced for this increment. See the [Sprint 8 report](docs/sprint-8-report.md) and [ADR-0019](docs/adr/0019-sprint-8-fail-closed-session-recovery.md).
+Sprint 8 is in progress. Recovery/provisioning is fail-closed, production and demo payer bundles are source-isolated, and the merchant now has a concrete Solana RPC/untrusted-relayer port that verifies cluster genesis, program ownership, derived PDAs and signed claim fields before local history advances. Live endpoint/UI wiring and the final two-phone production path remain open; no new APK was produced. See the [Sprint 8 report](docs/sprint-8-report.md) and [ADR-0019](docs/adr/0019-sprint-8-fail-closed-session-recovery.md).
 
 ## Demo evidence contract
 
