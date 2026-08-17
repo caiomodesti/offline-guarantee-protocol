@@ -20,6 +20,7 @@ import { createConfirmedRecoveryPort } from "../../apps/payer-mobile/src/confirm
 import { createPersistedOnchainSession } from "../../apps/payer-mobile/src/onchain-provisioning.js";
 import { evaluatePayerRecovery, type PayerRecoveryStoragePort } from "../../apps/payer-mobile/src/onchain-recovery-controller.js";
 import { bytesToHex } from "../../apps/payer-mobile/src/payer-runtime.js";
+import { SolanaClaimRelayer } from "../../apps/claim-relayer/src/claim-relayer.js";
 import BN from "bn.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -1121,30 +1122,25 @@ const normalForkRecord = forkPda(
   normalVerified.credential.previousStateHash,
   normalVerified.credential.sequence,
 );
-const normalClaimInstruction = await program.methods
-  .submitClaim(Buffer.from(normalMaterial.payload), Buffer.from(normalMaterial.payerSignature))
-  .accounts({
-    config,
-    session: normalSession,
-    profile: normalUser.profile,
-    merchant: normalMerchant.publicKey,
-    relayer: payer.publicKey,
-    claim: normalClaim,
-    stateEdge: normalEdge,
-    representativeClaim: normalClaim,
-    predecessorClaim: normalSession,
-    successorClaim: normalSession,
-    forkRecord: normalForkRecord,
-    parentEdge: normalSession,
-    instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
-    systemProgram: SystemProgram.programId,
-  })
-  .instruction();
-const normalClaimSignature = await provider.sendAndConfirm(
-  new Transaction().add(ed25519ReferenceInstruction(), normalClaimInstruction),
-  [],
-  { commitment: "confirmed", preflightCommitment: "confirmed" },
-);
+const runtimeRelayer = new SolanaClaimRelayer({
+  networkId: NetworkId.Localnet,
+  clusterGenesisHash: Uint8Array.from(clusterGenesisHash),
+  programId: program.programId,
+  relayer: payer,
+  connection,
+});
+const normalClaimSignature = (await runtimeRelayer.submit({
+  version: 1,
+  networkId: NetworkId.Localnet,
+  clusterGenesisHash: Buffer.from(clusterGenesisHash).toString("hex"),
+  programId: program.programId.toBase58(),
+  sessionAccount: normalSession.toBase58(),
+  claimAccount: normalClaim.toBase58(),
+  merchant: normalMerchant.publicKey.toBase58(),
+  credentialPayload: Buffer.from(normalMaterial.payload).toString("hex"),
+  payerSignature: Buffer.from(normalMaterial.payerSignature).toString("hex"),
+  credentialHash: Buffer.from(normalMaterial.credentialHash).toString("hex"),
+})).transactionSignature;
 await recordCompute("sprint_8_submit_claim", normalClaimSignature);
 const normalClaimState = decodeClaim(await fetchProgramAccount(normalClaim));
 const normalCollectedSession = await program.account.offlineSession.fetch(normalSession, "confirmed");
@@ -1162,7 +1158,7 @@ const normalMerchantToken = (
 ).address;
 pass(
   "Sprint 8 portable normal claim",
-  "on-chain session -> signed authorization/certificate -> QR challenge/proof/receipt -> merchant verification -> exact 410-byte runtime claim, with 50 exposure and no fork",
+  "on-chain session -> signed authorization/certificate -> QR challenge/proof/receipt -> merchant verification -> local HTTP-relayer core -> exact 410-byte runtime claim, with 50 exposure and no fork",
 );
 
 const insolventUser = await prepareUser(100);

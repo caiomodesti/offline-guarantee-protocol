@@ -9,6 +9,7 @@
     { "path": "packages/protocol-sdk" },
     { "path": "packages/reconciliation" },
     { "path": "packages/transports" },
+    { "path": "apps/claim-relayer" },
     { "path": "tests/runtime" }
   ]
 }

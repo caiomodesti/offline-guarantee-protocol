@@ -38,8 +38,9 @@ mobile:
   physical_offline_exchange_status: pass-network-disabled-2026-08-15
   physical_restart_matrix_status: open-nonblocking-hardening
   production_fixture_separation_status: pass-source-graph-increment-8.7
-  merchant_rpc_relayer_port_status: pass-source-increment-8.8-live-wiring-open
-  merchant_durable_sync_ui_status: pass-source-increment-8.9-live-service-open
+  merchant_rpc_relayer_port_status: pass-source-increment-8.8
+  merchant_durable_sync_ui_status: pass-source-increment-8.9
+  local_claim_relayer_status: pass-host-increment-8.10-validator-ci-pending
   merchant_production_fixture_separation_status: pass-source-graph-increment-8.9
 ```
 

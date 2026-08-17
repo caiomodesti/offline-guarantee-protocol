@@ -24,6 +24,7 @@
     "../../apps/payer-mobile/src/onchain-recovery.ts",
     "../../apps/payer-mobile/src/payer-runtime.ts",
     "../../apps/payer-mobile/src/session-access.ts",
-    "../../apps/payer-mobile/src/session-provisioning.ts"
+    "../../apps/payer-mobile/src/session-provisioning.ts",
+    "../../apps/claim-relayer/src/claim-relayer.ts"
   ]
 }

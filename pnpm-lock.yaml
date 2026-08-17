@@ -63,6 +63,31 @@ importers:
         specifier: 4.1.10
         version: 4.1.10(@types/node@26.2.0)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
 
+  apps/claim-relayer:
+    dependencies:
+      '@ogp/canonical-codec':
+        specifier: workspace:*
+        version: link:../../packages/canonical-codec
+      '@ogp/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
+      '@ogp/protocol-sdk':
+        specifier: workspace:*
+        version: link:../../packages/protocol-sdk
+      '@ogp/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      '@solana/web3.js':
+        specifier: 1.98.4
+        version: 1.98.4(bufferutil@4.1.0)(typescript@7.0.2)(utf-8-validate@6.0.6)
+    devDependencies:
+      '@types/node':
+        specifier: 26.2.0
+        version: 26.2.0
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
   apps/merchant-mobile:
     dependencies:
       '@ogp/credentials':

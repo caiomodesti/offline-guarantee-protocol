@@ -206,10 +206,29 @@ Claim details show `expires_at` separately from `claim_submission_deadline`. Dea
 
 No production endpoint or relayer service is invented by this increment, and no APK was generated. Live backend deployment and physical reconnection remain open acceptance gates.
 
+## Increment 8.10 — local claim relayer and validator transaction path
+
+Sprint 8 now includes an executable local HTTP relayer rather than only the mobile transport interface. The relayer key remains outside the repository and outside both applications. It is merely the permissionless fee/rent payer for `submit_claim`; signed credential fields and program constraints remain the economic authority.
+
+For every request the service:
+
+1. accepts only the exact version-1 JSON schema and bounded canonical hex/base58 encodings;
+2. verifies configured network, genesis and program against the request, signed domain and current RPC genesis;
+3. decodes the canonical credential, recomputes its hash and verifies the payer-device Ed25519 signature before spending fees;
+4. derives session, claim, profile, edge and fork PDAs rather than trusting supplied addresses;
+5. strictly decodes the session and complete program-owned claim list, verifies its count/head/tail/links/order, and computes predecessor/successor deterministically;
+6. resolves an existing edge representative or a reachable parent edge from on-chain evidence;
+7. builds exactly two instructions: native Ed25519 verification referencing the bytes inside the following Anchor instruction, then `submit_claim`;
+8. signs only with the relayer fee-payer key and waits for confirmed execution.
+
+In-process duplicate requests for one credential hash are coalesced. Durable and cross-process idempotency remains the on-chain Claim PDA; an existing PDA returns `409`, and the merchant then performs its already-defined strict authoritative lookup. HTTP requests are capped at 8 KiB, 15 seconds, eight concurrent submissions and 30 submissions per remote address per minute; a separate 45-second submission response timeout avoids hanging clients. Unknown errors are sanitized, and request bodies/private keys are never logged.
+
+The validator harness's normal portable path now calls this exact relayer core instead of constructing the claim transaction inline. It therefore proves the production account planner, native verifier offsets, raw Anchor encoding, signer, PDA creation and program execution together. This does not claim a public service deployment: the configured endpoint, TLS/operations, fallback relayer and physical reconnect remain acceptance gates. No APK was generated.
+
 ## Automated evidence
 
 ```text
-TypeScript / Vitest              111 PASS across 22 files
+TypeScript / Vitest              116 PASS across 23 files
 Sprint 8 recovery/queue/adapter  72 PASS
 Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
@@ -329,11 +348,25 @@ No program instruction, economic policy, fork behavior, Bluetooth, dashboard, or
 | Medium | Public endpoint configuration leaked or substituted | App must contact intended deployment without storing secrets | Expo public environment is inspectable by design | Accept public roots/URLs only, reject embedded credentials, verify RPC genesis/program/account after connection | MITIGATED; SIGNED CONFIG DISTRIBUTION OPEN |
 | Medium | Refresh failure after a prior confirmed read | Honest local history must not erase confirmed evidence | The original failure helper always reset status to pending | Preserve status/slot/signature and attach the newer RPC error separately; regression test | CLOSED DURING HOSTILE AUDIT |
 
+## Hostile audit — increment 8.10
+
+| Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
+|---|---|---|---|---|---|
+| Critical | Trivial if a secret is bundled | Relayer/mobile key separation | A transaction fee payer is required for permissionless submission | Load a 64-byte keypair only from an operator filesystem path; gitignore keypairs; public Expo config accepts no secret | CLOSED IN SOURCE; OPERATOR CUSTODY REMAINS |
+| High | Malicious request/RPC substitution | Only the configured cryptographic domain may be submitted | Request contains addresses and RPC is an external trust boundary | Recompute hash/signature/PDAs; compare request, credential domain, configured roots and current RPC genesis on every submission | CLOSED |
+| High | Valid-credential replay or concurrent workers | One proof must not multiply exposure | HTTP responses can be lost and multiple relayers can race | In-process single-flight plus program-owned Claim PDA; merchant resolves `409` by authoritative lookup | CLOSED |
+| High | Auxiliary-account substitution | Sorted claim insertion and parent reachability must remain valid | `submit_claim` requires predecessor, successor, representative and parent | Strictly decode/verify the entire session claim list and derive all auxiliary accounts; program revalidates atomically | CLOSED; LARGE-LIST SCALING OPEN |
+| High | Economic denial of service against relayer | Permissionless fees must not become unlimited operator liability | A payer with valid credentials can create wrappers/claims that consume rent | 8 KiB body cap, request/submission timeouts, concurrency and per-address rate limits, limited funded hot key | MITIGATED FOR LOCAL MVP; PRODUCTION SPONSOR/AUTH POLICY OPEN |
+| Medium | RPC state changes between planning and execution | No partial claim/list mutation | Planner reads several accounts before sending | Transaction preflight plus atomic program constraints; failure creates no PDA/list mutation; client retries/refetches | CLOSED BY RUNTIME ATOMICITY; LIVE RACE TEST PENDING |
+| Medium | Relayer returns signature while client times out | Local history must not invent failure or success | Submission can finish after HTTP 504 | Existing mobile ambiguous-failure path refetches exact Claim; only program-owned confirmed state advances status | CLOSED IN MODEL; PHYSICAL TEST PENDING |
+| Medium | Single endpoint censorship/outage | Merchant must submit before deadline | Local service is not an availability guarantee | Evidence remains portable and relayer has no authority; add independently operated fallback before acceptance | OPEN INTEGRATION RISK |
+| Low | Request/log leakage | On-chain-correlatable evidence should not leak unnecessarily before submission | Payload contains merchant/session/value metadata | No body/error-secret logging; bounded sanitized errors; TLS required outside loopback | MITIGATED; ON-CHAIN PRIVACY LEAKAGE UNCHANGED |
+
 ## Remaining acceptance gates
 
 - connect the implemented recovery/provisioning state machine to a concrete MWA transaction builder and deployed certificate-issuer service on a supported cluster;
 - connect the compiled MWA boundary on a supported cluster without storing wallet keys in the app;
-- deploy/configure at least one real relayer plus a fallback policy and exercise the merchant UI against live authoritative accounts;
+- run/configure the implemented relayer plus a fallback policy and exercise the merchant UI against live authoritative accounts;
 - surface authoritative claim, settlement, and session-close states in Portuguese in both apps;
 - physically test clear-data/reinstall against authoritative active-session state so it cannot create new exposure;
 - run the complete two-phone normal path again after those app integrations.

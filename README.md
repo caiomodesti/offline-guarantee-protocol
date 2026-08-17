@@ -229,7 +229,7 @@ Use the [two-device installation and offline test](docs/sprint-7-device-test.md)
 
 Full evidence: [Sprint 7 report](docs/sprint-7-report.md).
 
-Sprint 8 is in progress. Recovery/provisioning is fail-closed; production/demo bundles are isolated for both mobile apps; and the merchant's Portuguese history UI now persists each queue result while accepting status only from a matching confirmed Solana Claim account. Deployment configuration and storage are cryptographic-domain scoped, while local deadline warnings remain advisory. A deployed relayer, live endpoint configuration and the final two-phone production path remain open; no new APK was produced. See the [Sprint 8 report](docs/sprint-8-report.md) and [ADR-0019](docs/adr/0019-sprint-8-fail-closed-session-recovery.md).
+Sprint 8 is in progress. Recovery/provisioning is fail-closed; production/demo bundles are isolated for both mobile apps; and the merchant's Portuguese history UI now persists each queue result while accepting status only from a matching confirmed Solana Claim account. A bounded local relayer now derives every auxiliary claim account from authoritative state, verifies the cryptographic domain and current RPC genesis, and holds its fee-payer key only server-side. Public deployment, fallback availability and the final two-phone production path remain open; no new APK was produced. See the [Sprint 8 report](docs/sprint-8-report.md), [relayer runbook](apps/claim-relayer/README.md) and [ADR-0019](docs/adr/0019-sprint-8-fail-closed-session-recovery.md).
 
 ## Demo evidence contract
 
