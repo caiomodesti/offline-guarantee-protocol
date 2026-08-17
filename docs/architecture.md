@@ -53,6 +53,8 @@ Payer signing keys and merchant device keys use native secure storage. Public pr
 
 Sprint 8 separates ordinary restart from loss of local authority. A complete matching local provisioning record and protected device key may resume offline use. Missing or inconsistent state fails closed: the app requires connectivity, reads `profile.active_session` and the session account from Solana, and requires a wallet signature. It never creates new exposure while an authoritative prior session remains active and never treats reinstall as cancellation of merchant claims. See [ADR-0019](adr/0019-sprint-8-fail-closed-session-recovery.md).
 
+Mobile production artifacts do not embed the Sprint 7 payer or merchant fixtures. The merchant's public deployment configuration fixes network, genesis, program, issuer, settlement merchant, RPC and relayer; durable keys are scoped to that domain. On reconnect, the relayer is only a transport: the app revalidates stored evidence, derives the expected PDAs, verifies RPC genesis and account ownership, and updates local history only after a matching confirmed Claim read. Device-clock deadline warnings are advisory and never replace Solana Clock.
+
 ## Instruction placement for MVP
 
 | Action | Placement and rationale |

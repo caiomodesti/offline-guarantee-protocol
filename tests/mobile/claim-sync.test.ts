@@ -105,6 +105,22 @@ describe("merchant reconnect claim queue", () => {
     expect(adapter.submitClaim).not.toHaveBeenCalled();
   });
 
+  it("preserves the last confirmed observation when a later refresh loses connectivity", async () => {
+    const previouslyConfirmed: StoredClaim = {
+      ...claim(),
+      status: "submitted",
+      lastConfirmedSlot: "40",
+      transactionSignature: "previous-chain-signature",
+    };
+    const adapter = port({ lookupConfirmedClaim: vi.fn(async () => { throw new Error("RPC indisponível"); }) });
+    const updated = await syncStoredClaim(previouslyConfirmed, adapter);
+
+    expect(updated.status).toBe("submitted");
+    expect(updated.lastConfirmedSlot).toBe("40");
+    expect(updated.transactionSignature).toBe("previous-chain-signature");
+    expect(updated.lastSubmissionError).toMatch(/RPC indisponível/);
+  });
+
   it("continues deterministic hash-ordered processing after an individual failure", async () => {
     const first = claim("a");
     const second = claim("b");

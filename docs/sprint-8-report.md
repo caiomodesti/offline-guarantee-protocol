@@ -192,11 +192,25 @@ Queue processing remains deterministic by credential hash and now accepts a pers
 
 This is source-level production integration, not a claim that a relayer service is deployed. The current installed Sprint 7 APK is unchanged, and no APK was generated. App-screen wiring, endpoint distribution, deadline UX and a two-phone physical reconnect remain Sprint 8 acceptance gates.
 
+## Increment 8.9 — merchant durable UI and deployment isolation
+
+The merchant history screen now invokes the concrete claim port through the deterministic queue and persists every returned queue state in AsyncStorage before processing the next proof. The Portuguese UI exposes an explicit loading state, confirmed/failed totals, observed slot/signature, and honest retry errors. It states that connectivity is used only for submission and confirmed reads; a relayer response or transaction signature alone never means settlement.
+
+Production startup is fail-closed. It requires explicit public configuration for network, genesis hash, program ID, certificate issuer, merchant destination, RPC and relayer. HTTP is accepted only for loopback development; remote endpoints require HTTPS, embedded URL credentials are rejected, and the relayer URL cannot contain query credentials. No private wallet, device, issuer or relayer key is accepted from Expo environment variables.
+
+The historical Sprint 7 merchant fixture was moved behind `index.development.ts` and `package.development.json`, matching the payer separation. The production dependency graph cannot reach `src/trust.ts` or either demonstration entrypoint. The historical APK workflow explicitly selects the demonstration manifest for both apps; the repository default remains production.
+
+Durable state is also domain-scoped by network, genesis, program and merchant. A real deployment therefore cannot silently inherit the demonstration's claims, outstanding challenge or merchant device identity. The explicit historical demo alone retains its old storage namespace so the already-tested offline behavior remains reproducible.
+
+Claim details show `expires_at` separately from `claim_submission_deadline`. Deadline urgency is labeled as a local-clock observation only; it never blocks submission or establishes claim eligibility. The program and Solana Clock remain authoritative.
+
+No production endpoint or relayer service is invented by this increment, and no APK was generated. Live backend deployment and physical reconnection remain open acceptance gates.
+
 ## Automated evidence
 
 ```text
-TypeScript / Vitest              101 PASS across 19 files
-Sprint 8 recovery/queue/adapter  62 PASS
+TypeScript / Vitest              111 PASS across 22 files
+Sprint 8 recovery/queue/adapter  72 PASS
 Mobile TypeScript                 payer PASS; merchant PASS
 Golden vectors                     6 PASS
 Independent Rust conformance       1 PASS
@@ -303,11 +317,23 @@ No program instruction, economic policy, fork behavior, Bluetooth, dashboard, or
 | Medium | Relayer censorship or outage near deadline | Timely valid evidence should be submit-able | A single configured service can refuse or disappear | Relayer is replaceable and evidence remains portable; expose deadline and add fallback endpoints before physical acceptance | OPEN INTEGRATION RISK |
 | Medium | RPC serves stale confirmed view | UI may lag current settlement status | Confirmed is not finalized and one provider can lag | Record observation slot honestly; idempotent refetch; add refresh/fallback RPC policy | MITIGATED; LIVE POLICY PENDING |
 
+## Hostile audit — increment 8.9
+
+| Severity | Exploitability | Affected invariant | Evidence | Mitigation | Status |
+|---|---|---|---|---|---|
+| High | Build/configuration mistake | Production must not use Sprint 7 merchant identity | The default merchant app previously imported fixed fixture trust and merchant bytes | Separate production/demo entrypoints and manifests; dependency-graph regression test; fail-closed public deployment parser | CLOSED IN SOURCE |
+| High | Cross-deployment storage reuse | Evidence and device identity belong to one cryptographic domain | Legacy AsyncStorage/SecureStore keys were global | Scope production keys by network, genesis, program and merchant; retain legacy keys only in explicit demo | CLOSED |
+| High | Local signature displayed as success | History must reflect confirmed chain state | UI synchronization could overinterpret a relayer response | Existing queue advances only after strict Claim read; UI labels observations and errors, not backend assertions | CLOSED IN UI MODEL; PHYSICAL TEST PENDING |
+| Medium | Mobile interruption during a multi-claim batch | Each observed result must survive independently | App may background or terminate between claims | Await AsyncStorage persistence after every queue update and update visible state incrementally | CLOSED IN CONTROLLER; DEVICE KILL TEST PENDING |
+| Medium | Manipulated device clock | Offline timestamp must not decide claim eligibility or branch order | Deadline warnings use `Date.now()` | Advisory wording only; never suppress submission; Solana Clock/program decides | CLOSED |
+| Medium | Public endpoint configuration leaked or substituted | App must contact intended deployment without storing secrets | Expo public environment is inspectable by design | Accept public roots/URLs only, reject embedded credentials, verify RPC genesis/program/account after connection | MITIGATED; SIGNED CONFIG DISTRIBUTION OPEN |
+| Medium | Refresh failure after a prior confirmed read | Honest local history must not erase confirmed evidence | The original failure helper always reset status to pending | Preserve status/slot/signature and attach the newer RPC error separately; regression test | CLOSED DURING HOSTILE AUDIT |
+
 ## Remaining acceptance gates
 
 - connect the implemented recovery/provisioning state machine to a concrete MWA transaction builder and deployed certificate-issuer service on a supported cluster;
 - connect the compiled MWA boundary on a supported cluster without storing wallet keys in the app;
-- wire the concrete Solana RPC/relayer port into merchant AsyncStorage/UI with deployment endpoints, deadline urgency and a replaceable relayer policy;
+- deploy/configure at least one real relayer plus a fallback policy and exercise the merchant UI against live authoritative accounts;
 - surface authoritative claim, settlement, and session-close states in Portuguese in both apps;
 - physically test clear-data/reinstall against authoritative active-session state so it cannot create new exposure;
 - run the complete two-phone normal path again after those app integrations.

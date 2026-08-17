@@ -58,7 +58,6 @@ function failedAttempt(claim: StoredClaim, reason: unknown): StoredClaim {
   const message = reason instanceof Error ? reason.message : "falha desconhecida ao enviar claim";
   return {
     ...claim,
-    status: "pending-submission",
     submissionAttempts: claim.submissionAttempts + 1,
     lastSubmissionError: message,
   };
@@ -131,7 +130,7 @@ export async function syncClaimQueue(
     if (persist !== undefined) {
       await persist(claims.map((item) => updates.get(item.credentialHash) ?? item));
     }
-    if (updated.status === "pending-submission") failed += 1;
+    if (updated.lastSubmissionError !== null) failed += 1;
     else confirmed += 1;
   }
 
