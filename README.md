@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="#protocol-status"><img alt="Status: experimental" src="https://img.shields.io/badge/status-experimental-6E91F2?style=for-the-badge&labelColor=11192B" /></a>
-  <a href="docs/sprint-7-report.md"><img alt="Sprint 7: device gate open" src="https://img.shields.io/badge/sprint_7-device_gate_open-F4C95D?style=for-the-badge&labelColor=2C2618" /></a>
+  <a href="docs/sprint-8-report.md"><img alt="Sprint 8: in progress" src="https://img.shields.io/badge/sprint_8-in_progress-6E91F2?style=for-the-badge&labelColor=11192B" /></a>
   <a href="https://github.com/caiomodesti/offline-guarantee-protocol/actions/workflows/sprint-3-runtime-acceptance.yml"><img alt="Solana runtime proof" src="https://img.shields.io/badge/SBF_runtime-PASS-4ADE80?style=for-the-badge&labelColor=102219" /></a>
   <a href="https://github.com/caiomodesti/offline-guarantee-protocol/actions/workflows/sprint-7-mobile-android.yml"><img alt="Android native builds" src="https://img.shields.io/badge/Android_APKs-PASS-4ADE80?style=for-the-badge&labelColor=102219" /></a>
 </p>
@@ -225,9 +225,11 @@ Pending settlement
 
 Native development APKs for payer and merchant compiled successfully in [GitHub Actions run 31763513716](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31763513716), proving native compilation but not standalone operation: those artifacts require an Expo development server. Corrective [run 31768054067](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31768054067) proved standalone bundling. Physical-device [run 31842955479](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31842955479) produced compact `arm64-v8a` previews. Final payer correction [run 31848322396](https://github.com/caiomodesti/offline-guarantee-protocol/actions/runs/31848322396) restores the canonical 554-byte bootstrap fixture and verifies tests, v2 signature, manifest, ABI, embedded bundle, and SHA-256 digest.
 
-Use the [two-device installation and airplane-mode test](docs/sprint-7-device-test.md). The remaining acceptance gate is a complete camera exchange with both devices in airplane mode, including restart and SecureStore behavior.
+Use the [two-device installation and offline test](docs/sprint-7-device-test.md). The core acceptance exchange passed with Wi-Fi and mobile data disabled. The restart/SecureStore matrix remains retained hardening evidence, but it no longer blocks Sprint 8 because the original Prompt Master defines Sprint 7 acceptance as offline communication working.
 
 Full evidence: [Sprint 7 report](docs/sprint-7-report.md).
+
+Sprint 8 is in progress. Recovery/provisioning is fail-closed; production/demo bundles are isolated for both mobile apps; and the merchant's Portuguese history UI now persists each queue result while accepting status only from a matching confirmed Solana Claim account. A bounded local relayer now derives every auxiliary claim account from authoritative state, verifies the cryptographic domain and current RPC genesis, and holds its fee-payer key only server-side. Public deployment, fallback availability and the final two-phone production path remain open; no new APK was produced. See the [Sprint 8 report](docs/sprint-8-report.md), [relayer runbook](apps/claim-relayer/README.md) and [ADR-0019](docs/adr/0019-sprint-8-fail-closed-session-recovery.md).
 
 ## Demo evidence contract
 
@@ -257,23 +259,22 @@ See the complete [demo contract](docs/demo-script.md).
 | Allocation, settlement, revocation and withdrawal | Real SPL runtime execution | **PASS** |
 | QR payer / merchant source and native APKs | Host suite, Metro bundles and Android CI | **PASS** |
 | Two-device network-disabled camera flow | Owner-observed physical exchange | **PASS** |
-| SecureStore and restart matrix | Physical device matrix | **OPEN GATE** |
-| Normal reconnect → claim → settlement E2E | Sprint 8 | **NOT STARTED** |
+| SecureStore and restart matrix | Physical device matrix | **OPEN NON-BLOCKING HARDENING** |
+| Normal reconnect → claim → settlement E2E | Sprint 8 | **IN PROGRESS** |
 | Devnet deployment | Sprint 12 | **NOT STARTED** |
 
 Current decision:
 
 ```text
-SPRINT 7 — CONDITIONAL PASS
-IMPLEMENTATION COMPLETE
-DEVICE ACCEPTANCE OPEN
-SPRINT 8 BLOCKED
+SPRINT 7 — PASS
+CORE OFFLINE DEVICE FLOW ACCEPTED
+SPRINT 8 — IN PROGRESS
 ```
 
 ### Verified baselines
 
 ```text
-TypeScript / Vitest            47 tests passing across 7 files
+TypeScript / Vitest            92 tests passing across 17 files
 QR adversarial tests            7 passing
 Golden vectors                  6 passing
 Rust canonical conformance      1 passing
@@ -299,8 +300,8 @@ Merchant Android native build  PASS
 | 4 | Claim verification and collection | Complete |
 | 5 | Deterministic reconciliation | Complete |
 | 6 | Allocation, SPL settlement, revocation and withdrawal | Complete |
-| **7** | **Offline payer + merchant QR mobile flow** | **Device gate open** |
-| 8 | Normal E2E: deposit → session → offline pay → claim → settlement | Blocked by Sprint 7 gate |
+| **7** | **Offline payer + merchant QR mobile flow** | **Complete** |
+| **8** | **Normal E2E: deposit → session → offline pay → claim → settlement** | **In progress** |
 | 9 | Controlled rollback and real adversarial fork demo | Planned |
 | 10 | Normal and attack dashboard | Planned |
 | 11 | Bluetooth transport, only after QR is functional | Planned |
@@ -431,6 +432,12 @@ Read the [threat model](docs/threat-model.md), [risk model](docs/risk-model.md),
 | [Decision register](docs/decision-register.md) | `DECIDED FOR MVP`, `DEFERRED`, and `OPEN RISK` |
 | [Requirements traceability](docs/requirements-traceability.md) | Requirement → decision → trust → threat → mitigation → future test |
 | [Architecture decision records](docs/adr/README.md) | Immutable rationale for major choices |
+
+### Future research (not part of the approved MVP)
+
+| Document | Status |
+|---|---|
+| [Spend Notes architecture study](docs/spend-notes-architecture-study.md) | Research only — isolated prototype recommended; no production change authorized |
 
 ### Sprint evidence
 

@@ -56,6 +56,9 @@ jobs:
       - name: Build shared protocol packages
         run: corepack pnpm build
 
+      - name: Select the isolated historical Sprint 7 demonstration entrypoint
+        run: cp "apps/${{ matrix.app }}/package.development.json" "apps/${{ matrix.app }}/package.json"
+
       - name: Generate Android native project
         run: corepack pnpm --filter "${{ matrix.app }}" exec expo prebuild --platform android --no-install --clean
 

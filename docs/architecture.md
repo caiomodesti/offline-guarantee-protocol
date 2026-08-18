@@ -51,6 +51,10 @@ The QR layer fragments payloads, hashes the complete transfer, and rejects missi
 
 Payer signing keys and merchant device keys use native secure storage. Public proof bundles and pending claims are locally persistent but not confidential. App restart must never reset the payer branch tip or silently reuse an outstanding challenge. See [ADR-0018](adr/0018-sprint-7-qr-mobile-flow.md).
 
+Sprint 8 separates ordinary restart from loss of local authority. A complete matching local provisioning record and protected device key may resume offline use. Missing or inconsistent state fails closed: the app requires connectivity, reads `profile.active_session` and the session account from Solana, and requires a wallet signature. It never creates new exposure while an authoritative prior session remains active and never treats reinstall as cancellation of merchant claims. See [ADR-0019](adr/0019-sprint-8-fail-closed-session-recovery.md).
+
+Mobile production artifacts do not embed the Sprint 7 payer or merchant fixtures. The merchant's public deployment configuration fixes network, genesis, program, issuer, settlement merchant, RPC and relayer; durable keys are scoped to that domain. On reconnect, the relayer is only a transport: the app revalidates stored evidence, derives the expected PDAs, verifies RPC genesis and account ownership, and updates local history only after a matching confirmed Claim read. The local relayer independently rechecks the current RPC genesis, signed domain/signature/hash, authoritative session/list and every auxiliary PDA before paying for the native-Ed25519 + `submit_claim` transaction. Its server-side key grants no protocol authority. Device-clock deadline warnings are advisory and never replace Solana Clock.
+
 ## Instruction placement for MVP
 
 | Action | Placement and rationale |

@@ -43,6 +43,18 @@ type Fixture = {
     forkRecord: string;
     claims: InsolvencyClaimFixture[];
   };
+  normal: {
+    session: string;
+    profile: string;
+    vault: string;
+    vaultToken: string;
+    merchant: string;
+    merchantToken: string;
+    claim: string;
+    edge: string;
+    forkRecord: string;
+    credentialHash: string;
+  };
 };
 
 type RuntimeReport = {
@@ -325,6 +337,90 @@ assert.equal(asNumber(emptyVault.depositedAmount), 0);
 assert.equal(asNumber(emptyVault.reservedAmount), 0);
 assert.equal((await getAccount(connection, vaultToken)).amount, 0n);
 pass("formal withdrawal safety", "246 fails; exactly deposited_amount-reserved_amount=245 succeeds after all claim-window and unpaid-allocation exposure is gone");
+
+const normalSession = key(fixture.normal.session);
+const normalProfile = key(fixture.normal.profile);
+const normalVault = key(fixture.normal.vault);
+const normalVaultToken = key(fixture.normal.vaultToken);
+const normalClaim = key(fixture.normal.claim);
+const normalEdge = key(fixture.normal.edge);
+const normalMerchantToken = key(fixture.normal.merchantToken);
+const normalBeginSignature = await program.methods
+  .beginFinalization()
+  .accounts({ session: normalSession, vault: normalVault })
+  .rpc();
+await confirmSignature(normalBeginSignature);
+const normalClassifySignature = await program.methods
+  .classifyEdge()
+  .accounts({
+    session: normalSession,
+    stateEdge: normalEdge,
+    forkRecord: key(fixture.normal.forkRecord),
+    parentEdge: normalSession,
+  })
+  .rpc();
+await confirmSignature(normalClassifySignature);
+const normalAllocateSignature = await program.methods
+  .allocateNextClaim()
+  .accounts({ session: normalSession, vault: normalVault, claim: normalClaim, stateEdge: normalEdge })
+  .rpc();
+await confirmSignature(normalAllocateSignature);
+const normalAllocatedSession = await program.account.offlineSession.fetch(normalSession);
+const normalAllocatedClaim = decodeClaim(await fetchRaw(normalClaim));
+const normalAllocatedEdge = decodeStateEdgeRecord(await fetchRaw(normalEdge));
+const normalReservedVault = await program.account.collateralVault.fetch(normalVault);
+assert("reconciling" in normalAllocatedSession.status);
+assert("fullyCovered" in normalAllocatedSession.coverageStatus);
+assert.equal(normalAllocatedSession.authenticatedFork, false);
+assert.equal(asNumber(normalAllocatedSession.frozenExposure), 50);
+assert.equal(asNumber(normalAllocatedSession.allocatedTotal), 50);
+assert.equal(normalAllocatedClaim.status, "valid");
+assert.equal(normalAllocatedClaim.allocatedAmount, 50n);
+assert.equal(normalAllocatedEdge.conflicting, false);
+assert.equal(asNumber(normalReservedVault.reservedAmount), 50);
+pass("Sprint 8 normal deterministic allocation", "one merchant edge freezes and receives its full 50-unit allocation without conflict or arrival-order policy");
+
+const normalMerchantBefore = (await getAccount(connection, normalMerchantToken)).amount;
+const normalSettlementSignature = await program.methods
+  .settleClaim()
+  .accounts({
+    config,
+    settlementMint,
+    session: normalSession,
+    profile: normalProfile,
+    vault: normalVault,
+    vaultToken: normalVaultToken,
+    claim: normalClaim,
+    stateEdge: normalEdge,
+    merchantToken: normalMerchantToken,
+    tokenProgram: TOKEN_PROGRAM_ID,
+  })
+  .rpc();
+await confirmSignature(normalSettlementSignature);
+await recordCompute("sprint_8_settle_claim", normalSettlementSignature);
+const normalSettledSession = await program.account.offlineSession.fetch(normalSession);
+assert("settled" in normalSettledSession.status);
+assert.equal(asNumber(normalSettledSession.settledAmount), 50);
+const normalCloseSignature = await program.methods
+  .closeSession()
+  .accounts({ session: normalSession, profile: normalProfile })
+  .rpc();
+await confirmSignature(normalCloseSignature);
+await recordCompute("sprint_8_close_session", normalCloseSignature);
+const normalClosedSession = await program.account.offlineSession.fetch(normalSession);
+const normalRecoveredProfile = await program.account.userProfile.fetch(normalProfile);
+const normalSettledVault = await program.account.collateralVault.fetch(normalVault);
+assert.equal((await getAccount(connection, normalMerchantToken)).amount - normalMerchantBefore, 50n);
+assert("closed" in normalClosedSession.status);
+assert.equal(asNumber(normalClosedSession.settledAmount), 50);
+assert.equal(normalRecoveredProfile.offlineAccessEnabled, true);
+assert.equal(normalRecoveredProfile.activeSession.toBase58(), PublicKey.default.toBase58());
+assert.equal(asNumber(normalRecoveredProfile.successfulSessions), 1);
+assert.equal(asNumber(normalSettledVault.depositedAmount), 250);
+assert.equal(asNumber(normalSettledVault.reservedAmount), 0);
+assert.equal(asNumber(normalSettledVault.settledFromCollateral), 50);
+assert.equal((await getAccount(connection, normalVaultToken)).amount, 250n);
+pass("Sprint 8 payer-independent SPL settlement", "merchant receives 50 through PDA transfer_checked; permissionless close_session then closes the non-conflicted session without the payer key or payer reconnection");
 
 const insolventSession = key(fixture.insolvency.session);
 const insolventProfile = key(fixture.insolvency.profile);

@@ -3,13 +3,13 @@
 Date: 2026-08-13  
 Source of truth: original Prompt Master, Sprint 7 only  
 Scope boundary: payer + merchant QR communication while offline  
-Sprint 8 status: not started
+Sprint 8 status: started after physical offline acceptance
 
 ## Outcome
 
-The Sprint 7 implementation is complete at source, host-test, TypeScript, Metro Android-bundle, and native Android compile level. It is not yet fully accepted because this Windows host has no Android SDK, ADB, emulator, or connected test device. The first GitHub Actions gate built development-client APKs for both apps; those artifacts prove native compilation but cannot initialize without an Expo development server. A corrective standalone-preview gate now embeds the JavaScript bundle before the mandatory two-device airplane-mode camera test.
+The Sprint 7 implementation is complete at source, host-test, TypeScript, Metro Android-bundle, native Android compile, and core physical-device level. GitHub Actions produced standalone previews with embedded JavaScript bundles, and the owner completed the full two-device exchange with Wi-Fi and mobile data disabled.
 
-Current decision: **CONDITIONAL PASS — NO ADVANCE TO SPRINT 8 until the physical offline scan gate passes.**
+Current decision: **PASS — the Prompt Master's Sprint 7 acceptance criterion, offline communication, was physically demonstrated.**
 
 ## Environment
 
@@ -147,7 +147,7 @@ Corrective [GitHub Actions run 31768054067](https://github.com/caiomodesti/offli
 | Merchant | `sprint-7-merchant-mobile-android-standalone-preview` | 61,549,176 bytes | `assets/index.android.bundle`, 2,428,856 bytes | `d74da32997b8c989f72416820901c8209ce5db979ec31ae15e5f96c102d13016` |
 | Payer | `sprint-7-payer-mobile-android-standalone-preview` | 61,550,744 bytes | `assets/index.android.bundle`, 2,431,152 bytes | `21eaa64caf9e5791a38cb07abdf7f481a536ceba94b84bb574508dd88cc463e5` |
 
-Both jobs installed the pinned workspace, passed protocol and mobile typechecks, generated clean native projects, compiled `assembleRelease`, verified the embedded bundle from inside the APK, generated the digest, and uploaded the artifact. The next and only Sprint 7 gate is the [two-device airplane-mode test](sprint-7-device-test.md).
+Both jobs installed the pinned workspace, passed protocol and mobile typechecks, generated clean native projects, compiled `assembleRelease`, verified the embedded bundle from inside the APK, generated the digest, and uploaded the artifact. The subsequent [two-device offline test](sprint-7-device-test.md) passed the core camera exchange; its broader restart matrix remains non-blocking hardening.
 
 ### Compact physical-device artifacts
 
@@ -229,6 +229,6 @@ The merchant source now exposes a Portuguese claim-history view. It records proo
 
 ## Decision
 
-`CONDITIONAL PASS — IMPLEMENTATION COMPLETE, DEVICE ACCEPTANCE OPEN.`
+`PASS — IMPLEMENTATION AND CORE PHYSICAL OFFLINE ACCEPTANCE COMPLETE.`
 
-The complete payer → merchant → payer exchange now succeeds between two network-disconnected devices. Native Android compilation and core physical camera transport are proven; the explicit SecureStore/restart matrix remains the final Sprint 7 acceptance gate. This is an execution gate, not a chronology or architecture change.
+The complete payer → merchant → payer exchange succeeds between two network-disconnected devices. Native Android compilation and core physical camera transport are proven. The original Prompt Master requires Sprint 7 communication to work offline; it does not make the extended restart/SecureStore matrix a chronology gate. That matrix remains documented, valuable, and open as non-blocking hardening. Sprint 8 starts without erasing this residual evidence gap.

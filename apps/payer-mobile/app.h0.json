@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "OGP H0 Probe",
+    "slug": "ogp-payer-h0",
+    "scheme": "ogp-payer-h0",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-dev-client",
+      ["expo-camera", { "cameraPermission": "Permitir que o probe H0 copie somente o estado público entre aparelhos.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }],
+      ["expo-secure-store", { "configureAndroidBackup": false }]
+    ],
+    "android": {
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "protocol.ogp.payer.h0"
+    }
+  }
+}

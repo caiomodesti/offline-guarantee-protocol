@@ -1,0 +1,35 @@
+{
+  "name": "merchant-mobile",
+  "version": "0.1.0",
+  "main": "index.development.ts",
+  "dependencies": {
+    "@ogp/credentials": "workspace:*",
+    "@ogp/crypto": "workspace:*",
+    "@ogp/protocol-sdk": "workspace:*",
+    "@ogp/shared-types": "workspace:*",
+    "@ogp/transports": "workspace:*",
+    "@solana/web3.js": "1.98.4",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~57.0.12",
+    "expo-camera": "~57.0.3",
+    "expo-dev-client": "~57.0.7",
+    "expo-secure-store": "~57.0.1",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-quick-crypto": "1.1.6",
+    "react-native-qrcode-svg": "6.3.21",
+    "react-native-svg": "15.15.5"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "typecheck": "tsc --noEmit"
+  },
+  "private": true
+}

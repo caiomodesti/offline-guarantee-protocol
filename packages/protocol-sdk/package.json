@@ -11,6 +11,11 @@
       "import": "./dist/index.js"
     }
   },
+  "dependencies": {
+    "@ogp/canonical-codec": "workspace:*",
+    "@ogp/credentials": "workspace:*",
+    "@ogp/shared-types": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json"
   }

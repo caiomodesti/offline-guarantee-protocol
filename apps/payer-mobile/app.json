@@ -10,13 +10,19 @@
     "plugins": [
       "expo-dev-client",
       ["expo-camera", { "cameraPermission": "Permitir que o OGP Pagador leia os códigos QR de pagamento.", "recordAudioAndroid": false, "barcodeScannerEnabled": true }],
-      ["expo-secure-store", { "configureAndroidBackup": true }]
+      ["expo-secure-store", { "configureAndroidBackup": false }]
     ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "protocol.ogp.payer"
     },
     "android": {
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",

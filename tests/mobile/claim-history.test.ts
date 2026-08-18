@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findPotentialConflictHashes, markReceiptShown, parseStoredClaims } from "../../apps/merchant-mobile/src/claim-history.js";
+import { createStoredClaim, findPotentialConflictHashes, markReceiptShown, parseStoredClaims } from "../../apps/merchant-mobile/src/claim-history.js";
 
 const hash = (value: string): string => value.repeat(64);
 
@@ -15,6 +15,26 @@ describe("merchant claim history", () => {
 
     expect(claims).toHaveLength(1);
     expect(claims[0]?.receiptPresentation).toBe("unknown");
+    expect(claims[0]?.status).toBe("pending-submission");
+    expect(claims[0]?.submissionAttempts).toBe(0);
+  });
+
+  it("creates new durable proofs without pretending they were submitted or settled", () => {
+    const stored = createStoredClaim({
+      credentialHash: hash("a"),
+      amount: "50",
+      sessionId: hash("b"),
+      frames: ["frame"],
+    });
+
+    expect(stored).toMatchObject({
+      status: "pending-submission",
+      receiptPresentation: "not-shown",
+      submissionAttempts: 0,
+      transactionSignature: null,
+      lastConfirmedSlot: null,
+      lastSubmissionError: null,
+    });
   });
 
   it("records receipt presentation without representing payer acknowledgement", () => {

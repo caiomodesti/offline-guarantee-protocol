@@ -2,10 +2,25 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { AnchorProvider, Program, setProvider, type Idl } from "@anchor-lang/core";
 import { encodePaymentCredentialPayload } from "@ogp/canonical-codec";
-import { createDomain, createGenesisState, genesisStateHash, paymentStateHash } from "@ogp/credentials";
+import {
+  createDomain,
+  createGenesisState,
+  createPaymentCredential,
+  deviceAuthorizationHash,
+  genesisStateHash,
+  paymentStateHash,
+  signDeviceAuthorization,
+  signSessionCertificate,
+} from "@ogp/credentials";
 import { derivePublicKey, generateSecretKey, hashSha256, signEd25519 } from "@ogp/crypto";
-import { NetworkId, ObjectType, type DomainContext, type PaymentCredentialPayload, type PaymentState } from "@ogp/shared-types";
-import { decodeClaim, decodeStateEdgeRecord } from "@ogp/protocol-sdk";
+import { NetworkId, ObjectType, type DomainContext, type PaymentCredentialPayload, type PaymentState, type ProtocolTrustContext } from "@ogp/shared-types";
+import { createClaimSubmissionMaterial, decodeClaim, decodeStateEdgeRecord } from "@ogp/protocol-sdk";
+import { QRTransport, validateMerchantResponse } from "@ogp/transports";
+import { createConfirmedRecoveryPort } from "../../apps/payer-mobile/src/confirmed-recovery-port.js";
+import { createPersistedOnchainSession } from "../../apps/payer-mobile/src/onchain-provisioning.js";
+import { evaluatePayerRecovery, type PayerRecoveryStoragePort } from "../../apps/payer-mobile/src/onchain-recovery-controller.js";
+import { bytesToHex } from "../../apps/payer-mobile/src/payer-runtime.js";
+import { SolanaClaimRelayer } from "../../apps/claim-relayer/src/claim-relayer.js";
 import BN from "bn.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -917,6 +932,235 @@ await expectFailure("finalization before claim deadline", () =>
 );
 pass("claim-window reserve gate", "finalization cannot freeze claims or release collateral before the authoritative six-hour deadline");
 
+// Sprint 8 normal path: the exact portable QR credential accepted by the
+// merchant is transformed by the SDK and submitted to the runtime. This path
+// intentionally has no fork; the payer is not needed during phase-two payout.
+const normalUser = await prepareUser(120);
+const normalDeviceSecret = generateSecretKey();
+const normalDevicePublic = new PublicKey(derivePublicKey(normalDeviceSecret));
+const normalSessionResult = await createSession(
+  normalUser,
+  121,
+  300,
+  100,
+  (await chainNow()) + 3600,
+  normalDevicePublic,
+);
+await connection.confirmTransaction(normalSessionResult.signature, "confirmed");
+const normalSession = normalSessionResult.session;
+let normalSessionState = await program.account.offlineSession.fetch(normalSession, "confirmed");
+const normalTrustContext: ProtocolTrustContext = {
+  networkId: NetworkId.Localnet,
+  clusterGenesisHash: Uint8Array.from(clusterGenesisHash),
+  programId: program.programId.toBytes(),
+  sessionId: normalSessionResult.sessionId,
+  trustedCertificateIssuer: certificateIssuer.publicKey.toBytes(),
+};
+const normalWalletSecret = normalUser.owner.secretKey.slice(0, 32);
+assert.deepEqual(Array.from(derivePublicKey(normalWalletSecret)), Array.from(normalUser.owner.publicKey.toBytes()));
+const normalAuthorization = signDeviceAuthorization({
+  domain: createDomain(normalTrustContext, ObjectType.DeviceAuthorization),
+  owner: normalUser.owner.publicKey.toBytes(),
+  devicePublicKey: normalDevicePublic.toBytes(),
+  sessionId: normalSessionResult.sessionId,
+  vault: normalUser.vault.toBytes(),
+  branchSpendingLimit: 100n,
+  collateralCoverageCap: 300n,
+  maxBranchDepth: 32,
+  issuedAt: BigInt(normalSessionState.issuedAt.toString()),
+  expiresAt: BigInt(normalSessionState.expiresAt.toString()),
+  authorizationNonce: Uint8Array.from(nonzero(122)),
+}, normalWalletSecret);
+const normalAuthorizationHash = deviceAuthorizationHash(normalAuthorization);
+const normalAuthorizationSignature = await program.methods
+  .registerDeviceAuthorization(Array.from(normalAuthorizationHash))
+  .accounts({ config, owner: normalUser.owner.publicKey, session: normalSession })
+  .signers([normalUser.owner])
+  .rpc();
+await connection.confirmTransaction(normalAuthorizationSignature, "confirmed");
+normalSessionState = await program.account.offlineSession.fetch(normalSession, "confirmed");
+assert.deepEqual(Array.from(normalSessionState.deviceAuthorizationHash), Array.from(normalAuthorizationHash));
+const normalProfileState = await program.account.userProfile.fetch(normalUser.profile, "confirmed");
+const normalCertificate = signSessionCertificate({
+  domain: createDomain(normalTrustContext, ObjectType.SessionCertificate),
+  sessionId: normalSessionResult.sessionId,
+  owner: normalUser.owner.publicKey.toBytes(),
+  devicePublicKey: normalDevicePublic.toBytes(),
+  vault: normalUser.vault.toBytes(),
+  tokenMint: settlementMint.toBytes(),
+  branchSpendingLimit: 100n,
+  collateralLocked: 300n,
+  collateralCoverageCap: 300n,
+  maxBranchDepth: 32,
+  issuedAt: BigInt(normalSessionState.issuedAt.toString()),
+  expiresAt: BigInt(normalSessionState.expiresAt.toString()),
+  claimSubmissionDeadline: BigInt(normalSessionState.claimSubmissionDeadline.toString()),
+  genesisStateHash: Uint8Array.from(normalSessionState.genesisStateHash),
+  deviceAuthorizationHash: normalAuthorizationHash,
+  identityAttestationHash: Uint8Array.from(normalProfileState.identityAttestationHash),
+  issuer: certificateIssuer.publicKey.toBytes(),
+  finalizedSlot: BigInt(await connection.getSlot("confirmed")),
+  certificateNonce: Uint8Array.from(nonzero(123)),
+}, certificateIssuer.secretKey.slice(0, 32));
+
+const normalInitialParent = {
+  stateHash: Uint8Array.from(normalSessionState.genesisStateHash),
+  sequence: 0,
+  remaining: 100n,
+};
+const normalPersisted = createPersistedOnchainSession({
+  sessionAccount: normalSession.toBytes(),
+  runtime: {
+    deviceSecretHex: bytesToHex(normalDeviceSecret),
+    deviceAuthorization: normalAuthorization,
+    sessionCertificate: normalCertificate,
+    trustContext: normalTrustContext,
+    initialParent: normalInitialParent,
+  },
+});
+const normalRecoveryStorage: PayerRecoveryStoragePort = {
+  load: async () => ({
+    provisioningJson: normalPersisted.provisioningJson,
+    branchStateJson: normalPersisted.branchStateJson,
+    deviceSecretHex: normalPersisted.deviceSecretHex,
+  }),
+  writeBranchState: async () => undefined,
+  writeProvisioning: async () => undefined,
+  writeProtectedDeviceSecret: async () => undefined,
+};
+const normalRecoveryPort = createConfirmedRecoveryPort(
+  program.programId.toBytes(),
+  {
+    profileAddress: (owner) => profilePda(new PublicKey(owner)).toBytes(),
+  },
+  {
+    getConfirmedAccount: async (address, minContextSlot) => {
+      const configWithContext = minContextSlot === null
+        ? { commitment: "confirmed" as const }
+        : { commitment: "confirmed" as const, minContextSlot: Number(minContextSlot) };
+      const response = await connection.getAccountInfoAndContext(new PublicKey(address), configWithContext);
+      if (response.value === null) return null;
+      return {
+        contextSlot: BigInt(response.context.slot),
+        account: {
+          address,
+          ownerProgramId: response.value.owner.toBytes(),
+          data: response.value.data,
+        },
+      };
+    },
+  },
+);
+const normalRecovered = await evaluatePayerRecovery({
+  connected: true,
+  walletOwnerHex: bytesToHex(normalUser.owner.publicKey.toBytes()),
+  expectedEnvironment: {
+    networkId: normalTrustContext.networkId,
+    clusterGenesisHash: normalTrustContext.clusterGenesisHash,
+    programId: normalTrustContext.programId,
+    trustedCertificateIssuer: normalTrustContext.trustedCertificateIssuer,
+  },
+}, normalRecoveryStorage, normalRecoveryPort);
+assert.equal(normalRecovered.decision.outcome, "offline-ready");
+assert(normalRecovered.restoredSession !== null);
+assert.equal(normalRecovered.restoredSession.confirmedSessionSlot, normalCertificate.finalizedSlot.toString());
+assert.deepEqual(Array.from(normalRecovered.restoredSession.parent.stateHash), Array.from(normalSessionState.genesisStateHash));
+pass("Sprint 8 confirmed mobile recovery controller", "signed persisted material was revalidated and matched against confirmed UserProfile/OfflineSession runtime accounts before offline-ready");
+
+const normalMerchant = Keypair.generate();
+const normalMerchantDevice = derivePublicKey(generateSecretKey());
+const normalTransport = new QRTransport();
+const normalChallengeFrames = normalTransport.sendChallenge({
+  networkId: NetworkId.Localnet,
+  clusterGenesisHash: Uint8Array.from(clusterGenesisHash),
+  programId: program.programId.toBytes(),
+  merchant: normalMerchant.publicKey.toBytes(),
+  merchantDeviceKey: normalMerchantDevice,
+  amount: 50n,
+  challenge: Uint8Array.from(nonzero(124)),
+});
+const normalChallenge = normalTransport.receiveChallenge([...normalChallengeFrames].reverse());
+const normalCredential = createPaymentCredential(
+  normalTrustContext,
+  normalCertificate,
+  { stateHash: Uint8Array.from(normalSessionState.genesisStateHash), sequence: 0, remaining: 100n },
+  {
+    merchant: normalChallenge.merchant,
+    merchantDeviceKey: normalChallenge.merchantDeviceKey,
+    amount: normalChallenge.amount,
+    merchantChallenge: normalChallenge.challenge,
+    createdAt: BigInt(normalSessionState.issuedAt.toString()) + 1n,
+  },
+  normalDeviceSecret,
+);
+const normalProofFrames = normalTransport.sendCredential({
+  sessionCertificate: normalCertificate,
+  deviceAuthorization: normalAuthorization,
+  credentials: [normalCredential],
+});
+const normalPortableBundle = normalTransport.receiveCredential([...normalProofFrames].reverse());
+const normalVerified = validateMerchantResponse(
+  {
+    networkId: NetworkId.Localnet,
+    clusterGenesisHash: Uint8Array.from(clusterGenesisHash),
+    programId: program.programId.toBytes(),
+    trustedCertificateIssuer: certificateIssuer.publicKey.toBytes(),
+  },
+  normalChallenge,
+  normalPortableBundle,
+);
+const normalMaterial = createClaimSubmissionMaterial(normalVerified.credential);
+const normalClaim = claimPda(normalSession, normalMaterial.credentialHash);
+const normalEdge = edgePda(
+  normalSession,
+  normalVerified.credential.previousStateHash,
+  normalVerified.credential.sequence,
+  normalVerified.credential.newStateHash,
+);
+const normalForkRecord = forkPda(
+  normalSession,
+  normalVerified.credential.previousStateHash,
+  normalVerified.credential.sequence,
+);
+const runtimeRelayer = new SolanaClaimRelayer({
+  networkId: NetworkId.Localnet,
+  clusterGenesisHash: Uint8Array.from(clusterGenesisHash),
+  programId: program.programId,
+  relayer: payer,
+  connection,
+});
+const normalClaimSignature = (await runtimeRelayer.submit({
+  version: 1,
+  networkId: NetworkId.Localnet,
+  clusterGenesisHash: Buffer.from(clusterGenesisHash).toString("hex"),
+  programId: program.programId.toBase58(),
+  sessionAccount: normalSession.toBase58(),
+  claimAccount: normalClaim.toBase58(),
+  merchant: normalMerchant.publicKey.toBase58(),
+  credentialPayload: Buffer.from(normalMaterial.payload).toString("hex"),
+  payerSignature: Buffer.from(normalMaterial.payerSignature).toString("hex"),
+  credentialHash: Buffer.from(normalMaterial.credentialHash).toString("hex"),
+})).transactionSignature;
+await recordCompute("sprint_8_submit_claim", normalClaimSignature);
+const normalClaimState = decodeClaim(await fetchProgramAccount(normalClaim));
+const normalCollectedSession = await program.account.offlineSession.fetch(normalSession, "confirmed");
+assert.equal(normalClaimState.status, "submitted");
+assert.equal(normalClaimState.amount, 50n);
+assert.equal(asNumber(normalCollectedSession.aggregateOfflineExposure), 50);
+assert.equal(normalCollectedSession.authenticatedFork, false);
+const normalReceipt = normalTransport.receiveReceipt(normalTransport.sendReceipt({
+  credentialHash: normalMaterial.credentialHash,
+  merchantChallenge: normalVerified.credential.merchantChallenge,
+}));
+assert.deepEqual(Array.from(normalReceipt.credentialHash), Array.from(normalMaterial.credentialHash));
+const normalMerchantToken = (
+  await getOrCreateAssociatedTokenAccount(connection, payer, settlementMint, normalMerchant.publicKey)
+).address;
+pass(
+  "Sprint 8 portable normal claim",
+  "on-chain session -> signed authorization/certificate -> QR challenge/proof/receipt -> merchant verification -> local HTTP-relayer core -> exact 410-byte runtime claim, with 50 exposure and no fork",
+);
+
 const insolventUser = await prepareUser(100);
 const insolventDeviceSecret = generateSecretKey();
 const insolventDevicePublic = new PublicKey(derivePublicKey(insolventDeviceSecret));
@@ -1114,6 +1358,14 @@ const requiredPhaseTwoAccounts = [
   insolventUser.vaultToken,
   forkPda(insolventSession, insolventGenesis, 1),
   ...insolvencyOrder.flatMap((entry) => [entry.claim, entry.edge, entry.merchantToken]),
+  normalSession,
+  normalUser.profile,
+  normalUser.vault,
+  normalUser.vaultToken,
+  normalClaim,
+  normalEdge,
+  normalForkRecord,
+  normalMerchantToken,
 ];
 const finalizedAccounts = await connection.getMultipleAccountsInfo(
   requiredPhaseTwoAccounts,
@@ -1167,6 +1419,18 @@ await writeFile(
         merchantToken: entry.merchantToken.toBase58(),
         credentialHash: Buffer.from(entry.hash).toString("hex"),
       })),
+    },
+    normal: {
+      session: normalSession.toBase58(),
+      profile: normalUser.profile.toBase58(),
+      vault: normalUser.vault.toBase58(),
+      vaultToken: normalUser.vaultToken.toBase58(),
+      merchant: normalMerchant.publicKey.toBase58(),
+      merchantToken: normalMerchantToken.toBase58(),
+      claim: normalClaim.toBase58(),
+      edge: normalEdge.toBase58(),
+      forkRecord: normalForkRecord.toBase58(),
+      credentialHash: Buffer.from(normalMaterial.credentialHash).toString("hex"),
     },
   }, null, 2)}\n`,
 );

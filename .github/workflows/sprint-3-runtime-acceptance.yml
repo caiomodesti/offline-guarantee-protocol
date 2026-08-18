@@ -2,6 +2,8 @@ name: Sprint 3 Runtime Acceptance
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
     branches: [main, codex/sprint-6-economic-resolution]
 

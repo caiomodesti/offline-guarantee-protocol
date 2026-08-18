@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "types": ["node"]
+  },
+  "references": [
+    { "path": "../../packages/shared-types" },
+    { "path": "../../packages/canonical-codec" },
+    { "path": "../../packages/crypto" },
+    { "path": "../../packages/protocol-sdk" }
+  ],
+  "include": ["src/**/*.ts"]
+}
