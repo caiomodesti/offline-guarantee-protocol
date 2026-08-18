@@ -7,12 +7,15 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Serial,
 
+    [ValidateSet("ProductionPayer", "H0Probe")]
+    [string]$Target = "ProductionPayer",
+
     [string]$ApkPath,
     [string]$EvidenceRoot = "artifacts/security-hardening/h0/devices"
 )
 
 $ErrorActionPreference = "Stop"
-$PackageName = "protocol.ogp.payer"
+$PackageName = if ($Target -eq "H0Probe") { "protocol.ogp.payer.h0" } else { "protocol.ogp.payer" }
 $Adb = Join-Path $env:LOCALAPPDATA "Android\Sdk\platform-tools\adb.exe"
 $BuildToolsRoot = Join-Path $env:LOCALAPPDATA "Android\Sdk\build-tools"
 
@@ -37,7 +40,11 @@ if ($LASTEXITCODE -ne 0 -or $AndroidUserId -notmatch "^\d+$") {
 
 $SafeSerial = $Serial -replace "[^A-Za-z0-9._-]", "_"
 $Stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
-$EvidenceDir = Join-Path $EvidenceRoot (Join-Path $SafeSerial $Stamp)
+$DeviceEvidenceRoot = Join-Path $EvidenceRoot $SafeSerial
+if ($Target -eq "H0Probe") {
+    $DeviceEvidenceRoot = Join-Path $DeviceEvidenceRoot "h0-probe"
+}
+$EvidenceDir = Join-Path $DeviceEvidenceRoot $Stamp
 New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
 
 function Invoke-Adb {
@@ -182,6 +189,7 @@ switch ($Action) {
 
 [ordered]@{
     action = $Action
+    target = $Target
     serial = $Serial
     package = $PackageName
     apk_sha256 = $script:ResolvedApkSha256

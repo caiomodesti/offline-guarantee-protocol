@@ -37,7 +37,7 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Offline boot on Device B | PASS | Airplane mode was enabled and both Wi-Fi and mobile data were `0`; payer remained fail-closed, and the pre-test network state was restored in `finally` (`20260818T030507Z`) |
 | Clear data on Device B | PASS | User-0 payer data was cleared; the app returned fail-closed with no fatal startup evidence (`20260818T030533Z`) |
 | Uninstall/reinstall on Device B | PASS | The verified APK was reinstalled with the expected SHA-256; payer returned fail-closed with no fatal startup evidence and remained installed (`20260818T030601Z`) |
-| Selective-storage instrumentation source | PASS — APK PENDING | A separate `protocol.ogp.payer.h0` entrypoint can seed a deterministic valid tuple, delete only SecureStore, restore only the AsyncStorage-equivalent public records, export the exact public bytes by QR, and import them on another device. Production graph isolation and zero-authority outcomes are enforced by tests |
+| Selective-storage instrumentation | PASS — CI APK / PHYSICAL PENDING | A separate `protocol.ogp.payer.h0` entrypoint can seed a deterministic valid tuple, delete only SecureStore, restore only the AsyncStorage-equivalent public records, export the exact public bytes by QR, and import them on another device. Production graph isolation and zero-authority outcomes are enforced by tests. Workflow `32095043653` built and verified its isolated release APK; the downloaded 50,329,116-byte APK has SHA-256 `7F54335E2B8359F2BB37DF721C53900E1A76FFB3DF696900B6688D36E756A18F` |
 | Online recovery with active session | **NO-GO — INTEGRATION GAP** | Production UI currently shows a truthful recovery-required screen but has no concrete MWA/RPC/issuer adapter wired behind it |
 
 ### Defect found and corrected
@@ -57,6 +57,8 @@ The full local Gradle package also failed in Expo/Nitro CMake configuration beca
 ### CI APK proof
 
 The initial GitHub Actions run `31992215121`, commit `8a3091c34c9617b74bdd001cb84218f602a6b3f1`, completed successfully and established the first production-entrypoint artifact. After manifest hardening, final run `32090462706`, commit `95381a53e225b0e4ef7012868d185e7bcf88f0dd`, passed the complete source suite and the strengthened artifact verifier. The downloaded final ZIP digest exactly matched the digest published by GitHub, and the final APK hash exactly matched the `.sha256` sidecar generated inside the trusted job.
+
+Selective-storage workflow `32095043653`, commit `45b04f9997d1a99bd713f806e581b3cf9dfb2aa7`, completed both the production-entrypoint and lifecycle-instrumentation jobs successfully. The isolated artifact was published as `security-hardening-h0-payer-lifecycle-instrumentation-arm64`; its downloaded APK is 50,329,116 bytes with SHA-256 `7F54335E2B8359F2BB37DF721C53900E1A76FFB3DF696900B6688D36E756A18F`, exactly matching its job-generated sidecar. Local verification independently accepted the exact package `protocol.ogp.payer.h0`, signature, release/debug policy, ARM64 ABI, bundle, backup policy and permission allowlist.
 
 The APK is signed by the automatically generated Android debug certificate (`SHA-256 FAC61745DC0903786FB9EDE62A962B399F7348F0BB6F899B8332667591033B9C`) even though Gradle used the release build variant. This is acceptable only for the H0 physical lifecycle test. It is explicitly **not** a production/distribution signing decision.
 
@@ -84,7 +86,7 @@ The first APK also inherited `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and 
 
 ### H0 blockers
 
-1. Build and verify the isolated `protocol.ogp.payer.h0` APK in CI, then execute SecureStore loss, public-only restore and QR copy on Devices A and B.
+1. Execute the already-built and independently verified `protocol.ogp.payer.h0` APK on Devices A and B for SecureStore loss, public-only restore and QR copy.
 2. Complete the already-documented Sprint 8 MWA/RPC/certificate-issuer adapter before the active-session online-recovery row can be physically tested. A blocked informational screen is not recovery proof.
 
 ### Reproducible physical commands
@@ -98,10 +100,26 @@ The harness never chooses a device implicitly. Replace `<serial>` with a serial 
 .\scripts\h0-android-lifecycle.ps1 -Action UninstallReinstall -Serial '<serial>' -ApkPath '<apk>'
 ```
 
+The isolated selective-storage probe uses the same harness with an explicit target; the default target remains the production payer:
+
+```powershell
+.\scripts\h0-android-lifecycle.ps1 -Target H0Probe -Action Install -Serial '<serial>' -ApkPath '<h0-probe-apk>'
+.\scripts\h0-android-lifecycle.ps1 -Target H0Probe -Action Launch -Serial '<serial>'
+.\scripts\h0-android-lifecycle.ps1 -Target H0Probe -Action Capture -Serial '<serial>'
+```
+
+Physical sequence after the CI artifact passes:
+
+1. On Device A, seed the valid tuple and capture `ATIVA — PROBE H0` plus its public SHA-256.
+2. Delete only the protected key and capture `ZERO — FAIL-CLOSED` while public state remains present.
+3. Restore public state only and capture the same zero-authority result.
+4. Display Device A's public-copy QR, import it on Device B, compare the SHA-256 values and require `ZERO — FAIL-CLOSED` on Device B.
+
 The currently verified APK path is git-ignored and local-only:
 
 ```text
 artifacts/security-hardening/h0/ci-run-32090462706/extracted/app-release.apk
+artifacts/security-hardening/h0/ci-run-32095043653/instrumentation/app-release.apk
 ```
 
 Evidence is written under the git-ignored `artifacts/security-hardening/h0/devices/<serial>/<UTC timestamp>/` directory. The Device A offline proof used a one-shot operator-controlled wrapper that recorded the before/during/after network state and restored it in `finally`; the committed lifecycle harness itself does not silently change airplane mode, Wi-Fi, mobile data or wallet state.
