@@ -22,6 +22,15 @@ if grep -Eq 'A: android:(fullBackupContent|dataExtractionRules)' <<<"$manifest";
   echo 'H0 payer must not reference Android backup or extraction rules' >&2
   exit 1
 fi
+for forbidden_permission in \
+  android.permission.SYSTEM_ALERT_WINDOW \
+  android.permission.READ_EXTERNAL_STORAGE \
+  android.permission.WRITE_EXTERNAL_STORAGE; do
+  if grep -q "A: android:name.*=\"$forbidden_permission\"" <<<"$manifest"; then
+    echo "H0 payer contains forbidden Android permission: $forbidden_permission" >&2
+    exit 1
+  fi
+done
 
 unzip -l "$apk" | grep -E 'assets/(index\.android\.bundle|_expo/static/js/android/.+\.(js|hbc))'
 unzip -l "$apk" | grep -q 'lib/arm64-v8a/'

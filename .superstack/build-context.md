@@ -42,6 +42,7 @@ mobile:
   production_android_apk_sha256: aeb108722ff7d5819e1f9ba3b8f713e4f1d486899e735bd2d3b9e4aaebe0c24f
   physical_h0_harness_status: pass-ready-no-device
   android_backup_policy_status: hardening-allowbackup-false-ci-and-physical-pending
+  android_permission_policy_status: hardening-block-overlay-and-external-storage-ci-pending
   production_fixture_separation_status: pass-source-graph-increment-8.7
   merchant_rpc_relayer_port_status: pass-source-increment-8.8
   merchant_durable_sync_ui_status: pass-source-increment-8.9
