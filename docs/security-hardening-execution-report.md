@@ -17,7 +17,7 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Check | Result | Evidence |
 |---|---|---|
 | Android toolchain discovery | PASS | ADB 36.0.0 and Android SDK are installed locally |
-| Connected physical devices | PARTIAL PASS | Device A: physical Samsung SM-G781B, Android 13 / SDK 33, ARM64, ADB-authorized on Android user 0. Device B remains pending |
+| Connected physical devices | PASS — TWO DISTINCT DEVICES | Device A: Samsung SM-G781B, Android 13 / SDK 33. Device B: Samsung SM-A236M, Android 14 / SDK 34. Both are physical ARM64 devices and were independently ADB-authorized on Android user 0 |
 | Production entrypoint selected | PASS | `apps/payer-mobile/package.json` uses `index.ts`; no demo-manifest substitution was made |
 | TypeScript/mobile suite after H0 resolver change | PASS | 23 test files / 116 tests passed; both mobile typechecks passed |
 | Production Metro/Hermes bundle | PASS | Expo export produced a 3,011,562-byte Android HBC bundle from `apps/payer-mobile/index.ts`; SHA-256 `D2E04DF4E82ED218C9CA843288E0916803EDD5847B70E14A18E668F4AA1F198D` |
@@ -25,7 +25,7 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Reproducible Linux APK build | PASS | Private GitHub Actions run `32090462706`, commit `95381a53e225b0e4ef7012868d185e7bcf88f0dd`, completed successfully in 17m58s; 23 test files / 116 tests passed and the hardened production-entrypoint arm64 artifact was uploaded |
 | Artifact integrity | PASS | Final artifact ZIP: 26,119,205 bytes, SHA-256 `838C8F02A0BF4F403A0C7722525A46355203B3709D87EFEEE10BE2C891718511`, exactly matching GitHub's artifact digest |
 | APK validation | PASS — H0 TEST BUILD | Final APK: 50,328,556 bytes, SHA-256 `6FB693CF091A77DE1B61333A1F91175FA890DEC1562218768DBBC369ECB9D140`; package `protocol.ogp.payer`; min SDK 24; target SDK 36; `arm64-v8a` only; `assets/index.android.bundle` present; APK Signature Scheme v2 verified |
-| Android backup policy | PASS — CI + LOCAL STATIC + DEVICE A LIFECYCLE | Final APK has `allowBackup=false` and no `fullBackupContent` or `dataExtractionRules`; cloud backup, automatic restore and device transfer are disabled for the payer. Device A clear-data and reinstall behavior passed; selective public-store injection remains pending |
+| Android backup policy | PASS — CI + LOCAL STATIC + TWO-DEVICE LIFECYCLE | Final APK has `allowBackup=false` and no `fullBackupContent` or `dataExtractionRules`; cloud backup, automatic restore and device transfer are disabled for the payer. Clear-data and reinstall behavior passed on both devices; selective public-store injection remains pending |
 | Android debug policy | PASS — STATIC | `android:debuggable` is absent from the release manifest and therefore defaults to false |
 | Android permission minimization | PASS — CI + LOCAL STATIC | Final APK excludes overlay and external-storage permissions. Exact allowlist: camera, Internet, network state, biometric/fingerprint, vibration and the package-scoped non-exported receiver permission |
 | Physical evidence harness | PASS — DEVICE A PROVEN | `scripts/h0-android-lifecycle.ps1` requires an explicit authorized physical-device serial, rejects emulators, verifies APK signature/package/arm64/SHA-256 sidecar and device ABI before installation, scopes destructive actions to `protocol.ogp.payer` and the active Android user, clears logcat before launch, refuses screenshots unless the payer is foreground, and captures device inventory, logcat and screenshot evidence |
@@ -33,7 +33,10 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Clear data on Device A | PASS | `pm clear --user 0 protocol.ogp.payer` succeeded; payer returned to the same fail-closed recovery-required screen with no fatal startup evidence (`20260818T025510Z`) |
 | Uninstall/reinstall on Device A | PASS | User-0 uninstall/reinstall succeeded with the verified APK SHA-256 `6FB693CF091A77DE1B61333A1F91175FA890DEC1562218768DBBC369ECB9D140`; payer returned fail-closed with no fatal startup evidence (`20260818T025559Z`) |
 | Offline boot on Device A | PASS | During capture, airplane mode was enabled and both Wi-Fi and mobile data were `0`; payer remained on the recovery-required screen and recreated no authority. No fatal startup evidence was present. The pre-test network state was restored in `finally` (`20260818T025858Z`) |
-| Device B lifecycle matrix | PENDING | Requires a second ADB-authorized physical device |
+| Clean install on Device B | PASS — NETWORK NOT CONTROLLED | The same authenticated APK installed on an empty user-0 package slot and returned to `Conexão necessária` with zero authority and no fatal startup evidence (`20260818T030338Z`) |
+| Offline boot on Device B | PASS | Airplane mode was enabled and both Wi-Fi and mobile data were `0`; payer remained fail-closed, and the pre-test network state was restored in `finally` (`20260818T030507Z`) |
+| Clear data on Device B | PASS | User-0 payer data was cleared; the app returned fail-closed with no fatal startup evidence (`20260818T030533Z`) |
+| Uninstall/reinstall on Device B | PASS | The verified APK was reinstalled with the expected SHA-256; payer returned fail-closed with no fatal startup evidence and remained installed (`20260818T030601Z`) |
 | Online recovery with active session | **NO-GO — INTEGRATION GAP** | Production UI currently shows a truthful recovery-required screen but has no concrete MWA/RPC/issuer adapter wired behind it |
 
 ### Defect found and corrected
@@ -66,10 +69,10 @@ The first APK also inherited `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and 
 
 | Scenario | Device A | Device B | Required result |
 |---|---|---|---|
-| Clean production install | PASS — fail-closed; network not controlled | PENDING | Recovery required; zero offline authority recreated |
-| Offline boot without a valid local session | PASS | PENDING | Recovery required; zero offline authority recreated |
-| Clear data | PASS | PENDING | Recovery required; no balance/session recreated |
-| Uninstall/reinstall | PASS | PENDING | Recovery required; no balance/session recreated |
+| Clean production install | PASS — fail-closed; network not controlled | PASS — fail-closed; network not controlled | Recovery required; zero offline authority recreated |
+| Offline boot without a valid local session | PASS | PASS | Recovery required; zero offline authority recreated |
+| Clear data | PASS | PASS | Recovery required; no balance/session recreated |
+| Uninstall/reinstall | PASS | PASS | Recovery required; no balance/session recreated |
 | Lose SecureStore key only | PENDING | PENDING | Partial public record rejected |
 | Restore AsyncStorage only | PENDING | PENDING | Partial public record rejected |
 | Copy public state A -> B | PENDING | PENDING | Device B cannot spend without matching protected key |
@@ -78,7 +81,7 @@ The first APK also inherited `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and 
 
 ### H0 blockers
 
-1. Repeat the lifecycle rows on Device B and use two devices for the public-state copy scenario.
+1. Create a controlled, valid source state and copy only its public portion from Device A to Device B; two empty fail-closed installations are not meaningful evidence for this attack.
 2. Add controlled fault-injection support for SecureStore-only loss and AsyncStorage-only restoration without weakening production storage controls.
 3. Complete the already-documented Sprint 8 MWA/RPC/certificate-issuer adapter before the active-session online-recovery row can be physically tested. A blocked informational screen is not recovery proof.
 
@@ -103,7 +106,7 @@ Evidence is written under the git-ignored `artifacts/security-hardening/h0/devic
 
 ### H0 decision
 
-**NO-GO / PARTIAL PHYSICAL PASS.** Device A proves fail-closed behavior for a clean install, offline boot, clear data and user-scoped uninstall/reinstall. Protected/public-store asymmetry, cross-device copying, a second physical device and live active-session recovery remain incomplete. Per the approved sequence, H1-H7 remain gated.
+**NO-GO / TWO-DEVICE LIFECYCLE PASS.** Devices A and B independently prove fail-closed behavior for clean install, offline boot, clear data and user-scoped uninstall/reinstall. Protected/public-store asymmetry, meaningful cross-device state copying and live active-session recovery remain incomplete. Per the approved sequence, H1-H7 remain gated.
 
 ## H1-H7
 
