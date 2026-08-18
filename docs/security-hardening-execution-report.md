@@ -25,7 +25,7 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Reproducible Linux APK build | PASS | Private GitHub Actions run `32090462706`, commit `95381a53e225b0e4ef7012868d185e7bcf88f0dd`, completed successfully in 17m58s; 23 test files / 116 tests passed and the hardened production-entrypoint arm64 artifact was uploaded |
 | Artifact integrity | PASS | Final artifact ZIP: 26,119,205 bytes, SHA-256 `838C8F02A0BF4F403A0C7722525A46355203B3709D87EFEEE10BE2C891718511`, exactly matching GitHub's artifact digest |
 | APK validation | PASS — H0 TEST BUILD | Final APK: 50,328,556 bytes, SHA-256 `6FB693CF091A77DE1B61333A1F91175FA890DEC1562218768DBBC369ECB9D140`; package `protocol.ogp.payer`; min SDK 24; target SDK 36; `arm64-v8a` only; `assets/index.android.bundle` present; APK Signature Scheme v2 verified |
-| Android backup policy | PASS — CI + LOCAL STATIC + TWO-DEVICE LIFECYCLE | Final APK has `allowBackup=false` and no `fullBackupContent` or `dataExtractionRules`; cloud backup, automatic restore and device transfer are disabled for the payer. Clear-data and reinstall behavior passed on both devices; selective public-store injection remains pending |
+| Android backup policy | PASS — CI + LOCAL STATIC + TWO-DEVICE LIFECYCLE | Final APK has `allowBackup=false` and no `fullBackupContent` or `dataExtractionRules`; cloud backup, automatic restore and device transfer are disabled for the payer. Clear-data and reinstall passed on both devices, and an explicit public-only state copy conferred zero authority on Device B |
 | Android debug policy | PASS — STATIC | `android:debuggable` is absent from the release manifest and therefore defaults to false |
 | Android permission minimization | PASS — CI + LOCAL STATIC | Final APK excludes overlay and external-storage permissions. Exact allowlist: camera, Internet, network state, biometric/fingerprint, vibration and the package-scoped non-exported receiver permission |
 | Physical evidence harness | PASS — DEVICE A PROVEN | `scripts/h0-android-lifecycle.ps1` requires an explicit authorized physical-device serial, rejects emulators, verifies APK signature/package/arm64/SHA-256 sidecar and device ABI before installation, scopes destructive actions to `protocol.ogp.payer` and the active Android user, clears logcat before launch, refuses screenshots unless the payer is foreground, and captures device inventory, logcat and screenshot evidence |
@@ -37,7 +37,11 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Offline boot on Device B | PASS | Airplane mode was enabled and both Wi-Fi and mobile data were `0`; payer remained fail-closed, and the pre-test network state was restored in `finally` (`20260818T030507Z`) |
 | Clear data on Device B | PASS | User-0 payer data was cleared; the app returned fail-closed with no fatal startup evidence (`20260818T030533Z`) |
 | Uninstall/reinstall on Device B | PASS | The verified APK was reinstalled with the expected SHA-256; payer returned fail-closed with no fatal startup evidence and remained installed (`20260818T030601Z`) |
-| Selective-storage instrumentation | PASS — CI APK / PHYSICAL PENDING | A separate `protocol.ogp.payer.h0` entrypoint can seed a deterministic valid tuple, delete only SecureStore, restore only the AsyncStorage-equivalent public records, export the exact public bytes by QR, and import them on another device. Production graph isolation and zero-authority outcomes are enforced by tests. Workflow `32095043653` built and verified its isolated release APK; the downloaded 50,329,116-byte APK has SHA-256 `7F54335E2B8359F2BB37DF721C53900E1A76FFB3DF696900B6688D36E756A18F` |
+| Selective-storage instrumentation | PASS — CI APK + TWO PHYSICAL DEVICES | A separate `protocol.ogp.payer.h0` entrypoint seeded a deterministic valid tuple on Device A, deleted only SecureStore, restored only the AsyncStorage-equivalent public records, exported the exact public bytes by QR, and imported them on Device B. Production graph isolation and zero-authority outcomes are enforced by tests. Workflow `32095043653` built and verified its isolated release APK; the downloaded 50,329,116-byte APK has SHA-256 `7F54335E2B8359F2BB37DF721C53900E1A76FFB3DF696900B6688D36E756A18F` |
+| Protected-key loss on Device A | PASS | Complete tuple produced `ATIVA — PROBE H0`; deleting only the protected key retained the public SHA-256 `00B976E980A51C0CF30F098E0A964F6DC5F395E5CC3EE58DA0163776DA5BEE21` but changed authority to `ZERO — FAIL-CLOSED` (`20260818T034243Z`, `20260818T034305Z`) |
+| Public-only restore on Device A | PASS | Rewriting only the exact public records kept the same public hash, left the protected key absent and retained zero authority (`20260818T034334Z`) |
+| Public copy Device A -> Device B | PASS | Device B scanned Device A's QR and reproduced the same public SHA-256 while the protected key remained absent and authority remained `ZERO — FAIL-CLOSED` (`20260818T034918Z`) |
+| Complete local session offline boot | PASS — DEVICE B | A complete tuple remained `ATIVA — PROBE H0` after relaunch with Wi-Fi `0` and mobile data `0`; the probe performs no RPC. The rejected notification-shade screenshot was superseded by foreground evidence (`20260818T035042Z`, `20260818T035122Z`) |
 | Online recovery with active session | **NO-GO — INTEGRATION GAP** | Production UI currently shows a truthful recovery-required screen but has no concrete MWA/RPC/issuer adapter wired behind it |
 
 ### Defect found and corrected
@@ -78,16 +82,15 @@ The first APK also inherited `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and 
 | Offline boot without a valid local session | PASS | PASS | Recovery required; zero offline authority recreated |
 | Clear data | PASS | PASS | Recovery required; no balance/session recreated |
 | Uninstall/reinstall | PASS | PASS | Recovery required; no balance/session recreated |
-| Lose SecureStore key only | SOURCE PASS — physical probe pending | SOURCE PASS — physical probe pending | Partial public record rejected |
-| Restore AsyncStorage only | SOURCE PASS — physical probe pending | SOURCE PASS — physical probe pending | Partial public record rejected |
-| Copy public state A -> B | Source/export implementation ready | Import implementation ready | Device B cannot spend without matching protected key |
-| Complete valid local session, offline boot | PENDING | PENDING | Exact signed branch restored without RPC |
+| Lose SecureStore key only | PASS — zero authority | Not repeated; source invariant shared | Partial public record rejected |
+| Restore AsyncStorage only | PASS — zero authority | PASS through cross-device import | Partial public record rejected |
+| Copy public state A -> B | PASS — exported exact bytes | PASS — same hash, zero authority | Device B cannot spend without matching protected key |
+| Complete valid local session, offline boot | Not repeated | PASS after copy/reseed | Exact signed branch restored without RPC |
 | Active on-chain session after local loss | BLOCKED | BLOCKED | Fresh capacity blocked; concrete MWA/RPC recovery still needs integration |
 
 ### H0 blockers
 
-1. Execute the already-built and independently verified `protocol.ogp.payer.h0` APK on Devices A and B for SecureStore loss, public-only restore and QR copy.
-2. Complete the already-documented Sprint 8 MWA/RPC/certificate-issuer adapter before the active-session online-recovery row can be physically tested. A blocked informational screen is not recovery proof.
+1. Complete the already-documented Sprint 8 MWA/RPC/certificate-issuer adapter before the active-session online-recovery row can be physically tested. A blocked informational screen is not recovery proof.
 
 ### Reproducible physical commands
 
@@ -126,7 +129,7 @@ Evidence is written under the git-ignored `artifacts/security-hardening/h0/devic
 
 ### H0 decision
 
-**NO-GO / TWO-DEVICE LIFECYCLE PASS.** Devices A and B independently prove fail-closed behavior for clean install, offline boot, clear data and user-scoped uninstall/reinstall. Protected/public-store asymmetry, meaningful cross-device state copying and live active-session recovery remain incomplete. Per the approved sequence, H1-H7 remain gated.
+**NO-GO / PHYSICAL STORAGE LIFECYCLE PASS.** Devices A and B prove fail-closed behavior for clean install, offline boot, clear data, user-scoped uninstall/reinstall, protected-key loss, public-only restore and an exact cross-device public-state copy. A complete local tuple also survived a no-network relaunch. Live active-session recovery remains incomplete because the production MWA/RPC/issuer adapter is not wired. Per the approved sequence, H1-H7 remain gated.
 
 ## H1-H7
 

@@ -36,12 +36,12 @@ mobile:
   standalone_preview_status: pass-payer-fixture-run-31848322396
   physical_device_tested: true
   physical_offline_exchange_status: pass-network-disabled-2026-08-15
-  physical_restart_matrix_status: two-device-clean-offline-clear-reinstall-pass-store-asymmetry-copy-and-live-recovery-pending
+  physical_restart_matrix_status: two-device-storage-lifecycle-and-public-copy-pass-live-recovery-pending
   production_metro_hermes_bundle_status: pass-h0-2026-08-17
   production_android_apk_workflow_status: pass-run-32090462706-arm64-debug-signed-h0-only
   production_android_apk_sha256: 6fb693cf091a77de1b61333a1f91175fa890dec1562218768dbbc369ecb9d140
   physical_h0_harness_status: pass-two-devices-user-scoped-foreground-verified
-  h0_selective_storage_probe_status: source-and-ci-apk-pass-run-32095043653-physical-pending
+  h0_selective_storage_probe_status: pass-source-ci-apk-and-two-device-physical-run-32095043653
   h0_probe_apk_sha256: 7f54335e2b8359f2bb37df721c53900e1a76ffb3df696900b6688d36e756a18f
   h0_probe_package: protocol.ogp.payer.h0
   android_backup_policy_status: pass-ci-local-static-and-two-device-clear-reinstall
