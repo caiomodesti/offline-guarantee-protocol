@@ -27,7 +27,7 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | APK validation | PASS — H0 TEST BUILD | APK: 50,328,656 bytes, SHA-256 `AEB108722FF7D5819E1F9BA3B8F713E4F1D486899E735BD2D3B9E4AAEBE0C24F`; package `protocol.ogp.payer`; min SDK 24; target SDK 36; `arm64-v8a` only; `assets/index.android.bundle` present; APK Signature Scheme v2 verified |
 | Android backup policy | HARDENING IN PROGRESS | First H0 APK allowed backup with rules that excluded SecureStore and all database/file/root domains. The payer source now sets `allowBackup=false` and disables generated backup/extraction rules; CI and physical proof remain pending for the replacement APK |
 | Android debug policy | PASS — STATIC | `android:debuggable` is absent from the release manifest and therefore defaults to false |
-| Physical evidence harness | PASS — READY | `scripts/h0-android-lifecycle.ps1` requires an explicit authorized physical-device serial, rejects emulators, scopes destructive actions to `protocol.ogp.payer`, and captures device inventory, logcat and screenshot evidence |
+| Physical evidence harness | PASS — READY | `scripts/h0-android-lifecycle.ps1` requires an explicit authorized physical-device serial, rejects emulators, verifies APK signature/package/arm64/SHA-256 sidecar and device ABI before installation, scopes destructive actions to `protocol.ogp.payer`, and captures device inventory, logcat and screenshot evidence |
 | Clear-data/reinstall matrix | PENDING | Requires the payer APK plus two ADB-authorized devices |
 | Online recovery with active session | **NO-GO — INTEGRATION GAP** | Production UI currently shows a truthful recovery-required screen but has no concrete MWA/RPC/issuer adapter wired behind it |
 

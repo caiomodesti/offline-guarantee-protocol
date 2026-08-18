@@ -14,6 +14,7 @@ param(
 $ErrorActionPreference = "Stop"
 $PackageName = "protocol.ogp.payer"
 $Adb = Join-Path $env:LOCALAPPDATA "Android\Sdk\platform-tools\adb.exe"
+$BuildToolsRoot = Join-Path $env:LOCALAPPDATA "Android\Sdk\build-tools"
 
 if (-not (Test-Path -LiteralPath $Adb -PathType Leaf)) {
     throw "ADB nao encontrado em $Adb"
@@ -50,6 +51,43 @@ function Require-Apk {
     $script:ResolvedApk = (Resolve-Path -LiteralPath $ApkPath).Path
     if (-not (Test-Path -LiteralPath $script:ResolvedApk -PathType Leaf)) {
         throw "APK nao encontrado: $ApkPath"
+    }
+
+    $BuildTools = Get-ChildItem -LiteralPath $BuildToolsRoot -Directory |
+        Sort-Object { [version]$_.Name } -Descending |
+        Select-Object -First 1
+    if (-not $BuildTools) {
+        throw "Android build-tools nao encontrados em $BuildToolsRoot"
+    }
+
+    $ApkSigner = Join-Path $BuildTools.FullName "apksigner.bat"
+    $Aapt = Join-Path $BuildTools.FullName "aapt.exe"
+    & $ApkSigner verify --verbose $script:ResolvedApk | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Assinatura APK invalida: $script:ResolvedApk"
+    }
+
+    $Badging = & $Aapt dump badging $script:ResolvedApk
+    if ($LASTEXITCODE -ne 0 -or $Badging -notmatch "package: name='$([regex]::Escape($PackageName))'") {
+        throw "O APK nao pertence ao package esperado $PackageName"
+    }
+    if ($Badging -notmatch "native-code: 'arm64-v8a'") {
+        throw "O APK H0 deve conter somente a arquitetura arm64-v8a"
+    }
+
+    $DeviceAbis = (Invoke-Adb shell getprop ro.product.cpu.abilist).Trim()
+    if ($DeviceAbis -notmatch "(^|,)arm64-v8a(,|$)") {
+        throw "O aparelho $Serial nao suporta o APK arm64-v8a: $DeviceAbis"
+    }
+
+    $Sidecar = "$($script:ResolvedApk).sha256"
+    if (-not (Test-Path -LiteralPath $Sidecar -PathType Leaf)) {
+        throw "Sidecar SHA-256 obrigatorio nao encontrado: $Sidecar"
+    }
+    $ExpectedHash = ((Get-Content -LiteralPath $Sidecar -Raw).Trim() -split "\s+")[0].ToUpperInvariant()
+    $script:ResolvedApkSha256 = (Get-FileHash -LiteralPath $script:ResolvedApk -Algorithm SHA256).Hash
+    if ($script:ResolvedApkSha256 -ne $ExpectedHash) {
+        throw "SHA-256 do APK diverge do sidecar CI"
     }
 }
 
@@ -124,6 +162,7 @@ switch ($Action) {
     action = $Action
     serial = $Serial
     package = $PackageName
+    apk_sha256 = $script:ResolvedApkSha256
     evidence_dir = (Resolve-Path -LiteralPath $EvidenceDir).Path
     completed_at_utc = (Get-Date).ToUniversalTime().ToString("o")
 } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $EvidenceDir "result.json") -Encoding utf8
