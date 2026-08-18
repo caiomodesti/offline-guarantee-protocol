@@ -11,6 +11,7 @@ import { QRTransport, assertChallengeEnvironment, type MerchantChallenge, type T
 import { createPersistedOnchainSession } from "./src/onchain-provisioning";
 import { evaluatePayerRecovery, type PayerRecoveryChainPort, type PayerRecoveryStoragePort } from "./src/onchain-recovery-controller";
 import { ONCHAIN_BRANCH_STORAGE, ONCHAIN_DEVICE_KEY_STORAGE, ONCHAIN_PROVISIONING_STORAGE } from "./src/payer-storage-keys";
+import { createPayerCrashConsistentStorage } from "./src/payer-crash-storage";
 import { bytesToHex, hexToBytes, type PayerSessionRuntime } from "./src/payer-runtime";
 import { configuredTrustEnvironment } from "./src/runtime-configuration";
 import { bootstrapPayerRuntime, type PayerRuntimeMode } from "./src/runtime-mode";
@@ -19,16 +20,19 @@ const transport = new QRTransport();
 const DEVICE_KEY_STORAGE = "ogp.session.c3.device-key";
 const SESSION_STATE_STORAGE = "ogp.session.c3.local-state";
 
-const recoveryStorage: PayerRecoveryStoragePort = {
+const recoveryStorage: PayerRecoveryStoragePort = createPayerCrashConsistentStorage({
+  get: async (area, key) => area === "protected" ? SecureStore.getItemAsync(key) : AsyncStorage.getItem(key),
+  set: async (area, key, value) => area === "protected"
+    ? SecureStore.setItemAsync(key, value, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY })
+    : AsyncStorage.setItem(key, value),
+  remove: async (area, key) => area === "protected" ? SecureStore.deleteItemAsync(key) : AsyncStorage.removeItem(key),
+}, {
   load: async () => ({
     provisioningJson: await AsyncStorage.getItem(ONCHAIN_PROVISIONING_STORAGE),
     branchStateJson: await AsyncStorage.getItem(ONCHAIN_BRANCH_STORAGE),
     deviceSecretHex: await SecureStore.getItemAsync(ONCHAIN_DEVICE_KEY_STORAGE),
   }),
-  writeBranchState: async (value) => AsyncStorage.setItem(ONCHAIN_BRANCH_STORAGE, value),
-  writeProvisioning: async (value) => AsyncStorage.setItem(ONCHAIN_PROVISIONING_STORAGE, value),
-  writeProtectedDeviceSecret: async (value) => SecureStore.setItemAsync(ONCHAIN_DEVICE_KEY_STORAGE, value, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY }),
-};
+});
 
 const forbiddenOfflineChainRead: PayerRecoveryChainPort = {
   fetchConfirmedRecovery: async () => { throw new Error("RPC não pode ser consultado durante o bootstrap offline"); },
@@ -155,7 +159,7 @@ export function PayerApplication({ configuredMode, loadDevelopmentRuntime }: Pay
     if (runtimeMode === "on-chain") {
       if (onchainSessionAccount === null) throw new Error("Conta on-chain da sessão indisponível");
       const persisted = createPersistedOnchainSession({ sessionAccount: onchainSessionAccount, runtime: sessionRuntime, parent: nextParent, frames, pendingDelivery });
-      await AsyncStorage.setItem(ONCHAIN_BRANCH_STORAGE, persisted.branchStateJson);
+      await recoveryStorage.commit(persisted);
       return;
     }
     await AsyncStorage.setItem(SESSION_STATE_STORAGE, JSON.stringify({ frames, pendingDelivery } satisfies StoredSessionState));
@@ -185,7 +189,9 @@ export function PayerApplication({ configuredMode, loadDevelopmentRuntime }: Pay
   const authorizePayment = async () => {
     if (challenge === null || sessionRuntime === null || parent === null) return;
     try {
-      const storedSecret = await SecureStore.getItemAsync(runtimeMode === "on-chain" ? ONCHAIN_DEVICE_KEY_STORAGE : DEVICE_KEY_STORAGE);
+      const storedSecret = runtimeMode === "on-chain"
+        ? (await recoveryStorage.load()).deviceSecretHex
+        : await SecureStore.getItemAsync(DEVICE_KEY_STORAGE);
       if (storedSecret === null) throw new Error("Chave da sessão indisponível");
       const credential = createPaymentCredential(
         sessionRuntime.trustContext,

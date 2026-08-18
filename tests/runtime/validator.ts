@@ -1024,9 +1024,7 @@ const normalRecoveryStorage: PayerRecoveryStoragePort = {
     branchStateJson: normalPersisted.branchStateJson,
     deviceSecretHex: normalPersisted.deviceSecretHex,
   }),
-  writeBranchState: async () => undefined,
-  writeProvisioning: async () => undefined,
-  writeProtectedDeviceSecret: async () => undefined,
+  commit: async () => undefined,
 };
 const normalRecoveryPort = createConfirmedRecoveryPort(
   program.programId.toBytes(),

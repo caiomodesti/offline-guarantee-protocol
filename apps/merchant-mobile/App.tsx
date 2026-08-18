@@ -15,6 +15,7 @@ import { syncClaimQueue } from "./src/claim-sync";
 import { createSolanaClaimSubmissionPort } from "./src/solana-claim-port";
 import { configuredMerchantRuntime, type MerchantRuntimeConfiguration } from "./src/runtime-configuration";
 import { merchantStorageKeys } from "./src/storage-scope";
+import { createMerchantCrashConsistentStorage } from "./src/merchant-crash-storage";
 
 const transport = new QRTransport();
 
@@ -76,6 +77,19 @@ function Scanner({ onCode, onCancel }: { onCode: (data: string) => void; onCance
 
 export function MerchantApplication({ runtime, submissionEnabled = true }: MerchantApplicationProps) {
   const storage = useMemo(() => merchantStorageKeys(runtime, !submissionEnabled), [runtime, submissionEnabled]);
+  const durableStorage = useMemo(() => createMerchantCrashConsistentStorage(storage.durableNamespace, {
+    get: async (area, key) => area === "protected" ? SecureStore.getItemAsync(key) : AsyncStorage.getItem(key),
+    set: async (area, key, value) => area === "protected"
+      ? SecureStore.setItemAsync(key, value, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY })
+      : AsyncStorage.setItem(key, value),
+    remove: async (area, key) => area === "protected" ? SecureStore.deleteItemAsync(key) : AsyncStorage.removeItem(key),
+  }, {
+    load: async () => ({
+      deviceSecretHex: await SecureStore.getItemAsync(storage.deviceKey),
+      claimsJson: await AsyncStorage.getItem(storage.claims),
+      outstandingChallengeJson: await AsyncStorage.getItem(storage.outstandingChallenge),
+    }),
+  }), [storage]);
   const [screen, setScreen] = useState<Screen>("home");
   const [amountText, setAmountText] = useState("100");
   const [merchantDeviceKey, setMerchantDeviceKey] = useState<Uint8Array | null>(null);
@@ -92,16 +106,14 @@ export function MerchantApplication({ runtime, submissionEnabled = true }: Merch
 
   useEffect(() => {
     void (async () => {
-      let secretHex = await SecureStore.getItemAsync(storage.deviceKey);
-      if (secretHex === null) {
-        secretHex = bytesToHex(generateSecretKey());
-        await SecureStore.setItemAsync(storage.deviceKey, secretHex, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY });
-      }
+      const loaded = await durableStorage.load();
+      const snapshot = loaded ?? await durableStorage.initialize(bytesToHex(generateSecretKey()));
+      const secretHex = snapshot.deviceSecretHex;
       const devicePublicKey = derivePublicKey(hexToBytes(secretHex));
       setMerchantDeviceKey(devicePublicKey);
-      const storedClaims = parseStoredClaims(await AsyncStorage.getItem(storage.claims));
+      const storedClaims = parseStoredClaims(snapshot.claimsJson);
       setClaims(storedClaims);
-      const outstandingJson = await AsyncStorage.getItem(storage.outstandingChallenge);
+      const outstandingJson = snapshot.outstandingChallengeJson;
       if (outstandingJson !== null) {
         const outstanding = JSON.parse(outstandingJson) as StoredOutstandingChallenge;
         if (!equalBytesForStorage(devicePublicKey, hexToBytes(outstanding.merchantDeviceKey))) throw new Error("O pedido persistido pertence a outro dispositivo");
@@ -119,7 +131,7 @@ export function MerchantApplication({ runtime, submissionEnabled = true }: Merch
         setScreen("show-challenge");
       }
     })().catch((reason: unknown) => setError(errorText(reason)));
-  }, [runtime, storage]);
+  }, [durableStorage, runtime]);
 
   const createRequest = async () => {
     try {
@@ -135,7 +147,10 @@ export function MerchantApplication({ runtime, submissionEnabled = true }: Merch
         amount,
         challenge: generateChallenge(),
       };
-      await AsyncStorage.setItem(storage.outstandingChallenge, JSON.stringify({ amount: amount.toString(), challenge: bytesToHex(request.challenge), merchantDeviceKey: bytesToHex(merchantDeviceKey) }));
+      await durableStorage.update((current) => ({
+        ...current,
+        outstandingChallengeJson: JSON.stringify({ amount: amount.toString(), challenge: bytesToHex(request.challenge), merchantDeviceKey: bytesToHex(merchantDeviceKey) }),
+      }));
       setChallenge(request);
       setChallengeFrames(transport.sendChallenge(request));
       setError(null);
@@ -160,13 +175,16 @@ export function MerchantApplication({ runtime, submissionEnabled = true }: Merch
         const { credential } = validateMerchantResponse(runtime.trust, challenge, bundle);
 
         const hash = credentialHash(credential);
-        const storedClaims = parseStoredClaims(await AsyncStorage.getItem(storage.claims));
         const hashHex = bytesToHex(hash);
-        if (!storedClaims.some((claim) => claim.credentialHash === hashHex)) {
-          storedClaims.push(createStoredClaim({ credentialHash: hashHex, amount: credential.amount.toString(), sessionId: bytesToHex(credential.sessionId), frames: [...receivedFrames.current] }));
-          await AsyncStorage.setItem(storage.claims, JSON.stringify(storedClaims));
-        }
-        await AsyncStorage.removeItem(storage.outstandingChallenge);
+        const committed = await durableStorage.update((current) => {
+          if (current.outstandingChallengeJson === null) throw new Error("pedido durável ausente durante o recebimento da prova");
+          const storedClaims = parseStoredClaims(current.claimsJson);
+          if (!storedClaims.some((claim) => claim.credentialHash === hashHex)) {
+            storedClaims.push(createStoredClaim({ credentialHash: hashHex, amount: credential.amount.toString(), sessionId: bytesToHex(credential.sessionId), frames: [...receivedFrames.current] }));
+          }
+          return { ...current, claimsJson: JSON.stringify(storedClaims), outstandingChallengeJson: null };
+        });
+        const storedClaims = parseStoredClaims(committed.claimsJson);
         setClaims(storedClaims);
         setVerifiedCredential(credential);
         setReceiptFrames(transport.sendReceipt({ credentialHash: hash, merchantChallenge: credential.merchantChallenge }));
@@ -226,8 +244,12 @@ export function MerchantApplication({ runtime, submissionEnabled = true }: Merch
   const showReceipt = async () => {
     if (verifiedCredential === null) return;
     try {
-      const updatedClaims = markReceiptShown(claims, bytesToHex(credentialHash(verifiedCredential)));
-      await AsyncStorage.setItem(storage.claims, JSON.stringify(updatedClaims));
+      const hash = bytesToHex(credentialHash(verifiedCredential));
+      const committed = await durableStorage.update((current) => ({
+        ...current,
+        claimsJson: JSON.stringify(markReceiptShown(parseStoredClaims(current.claimsJson), hash)),
+      }));
+      const updatedClaims = parseStoredClaims(committed.claimsJson);
       setClaims(updatedClaims);
       setScreen("show-receipt");
     } catch (reason) {
@@ -243,7 +265,9 @@ export function MerchantApplication({ runtime, submissionEnabled = true }: Merch
     try {
       if (!submissionEnabled) throw new Error("A demonstração offline não envia claims. Use uma configuração on-chain válida.");
       if (merchantDeviceKey === null) throw new Error("Identidade do dispositivo ainda não está pronta");
-      const current = parseStoredClaims(await AsyncStorage.getItem(storage.claims));
+      const snapshot = await durableStorage.load();
+      if (snapshot === null) throw new Error("armazenamento durável do merchant indisponível");
+      const current = parseStoredClaims(snapshot.claimsJson);
       const port = createSolanaClaimSubmissionPort({
         rpcUrl: runtime.rpcUrl,
         relayerUrl: runtime.relayerUrl,
@@ -251,7 +275,7 @@ export function MerchantApplication({ runtime, submissionEnabled = true }: Merch
         trust: { ...runtime.trust, merchant: runtime.merchant, merchantDeviceKey },
       });
       const result = await syncClaimQueue(current, true, port, async (updated) => {
-        await AsyncStorage.setItem(storage.claims, JSON.stringify(updated));
+        await durableStorage.update((stored) => ({ ...stored, claimsJson: JSON.stringify(updated) }));
         setClaims([...updated]);
       });
       setClaims([...result.claims]);

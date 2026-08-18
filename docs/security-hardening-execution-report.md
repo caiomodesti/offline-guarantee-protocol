@@ -2,15 +2,17 @@
 
 - Started: 2026-08-17
 - Approved order: H0 -> H7
-- Current gate: H0
-- Overall status: **NO-GO / IN PROGRESS**
+- Current gate: H2
+- Overall status: **H0 PASS / H1 PASS / H2 NEXT**
 - Protocol/economic changes: none
 
 ## H0 — physical lifecycle matrix
 
 ### Gate result
 
-H0 is not complete. H1-H7 have not started because the authorization explicitly requires real fail-closed confirmation before continuing.
+**PASS for the H0 fail-closed device-storage gate.** Two physical Android devices confirmed that incomplete, restored or copied public state confers zero authority, while a complete tuple survives an offline restart. This is the real behavior required before H1.
+
+Physical MWA proof against an authoritative public-cluster session is **DEFERRED — SPRINT 12**, not silently waived. MWA 2.0 does not identify localnet, the Prompt Master reserves devnet deployment for Sprint 12, and the existing validator path already proves the controller with an injected signer. Pulling devnet forward or presenting a fake local wallet as MWA proof would violate the immutable chronology.
 
 ### Evidence collected
 
@@ -42,7 +44,7 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Public-only restore on Device A | PASS | Rewriting only the exact public records kept the same public hash, left the protected key absent and retained zero authority (`20260818T034334Z`) |
 | Public copy Device A -> Device B | PASS | Device B scanned Device A's QR and reproduced the same public SHA-256 while the protected key remained absent and authority remained `ZERO — FAIL-CLOSED` (`20260818T034918Z`) |
 | Complete local session offline boot | PASS — DEVICE B | A complete tuple remained `ATIVA — PROBE H0` after relaunch with Wi-Fi `0` and mobile data `0`; the probe performs no RPC. The rejected notification-shade screenshot was superseded by foreground evidence (`20260818T035042Z`, `20260818T035122Z`) |
-| Online recovery with active session | **NO-GO — INTEGRATION GAP** | Production UI currently shows a truthful recovery-required screen but has no concrete MWA/RPC/issuer adapter wired behind it |
+| Online recovery with active session | **DEFERRED — SPRINT 12 PHYSICAL MWA** | Validator-backed controller proof already returns the deterministic active-session block. Production physical MWA/RPC/issuer proof requires a supported public cluster; the truthful UI remains fail-closed until that scheduled integration |
 
 ### Defect found and corrected
 
@@ -74,7 +76,7 @@ The static result was safe for the observed stores but unnecessarily depended on
 
 The first APK also inherited `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` from the Expo base template. None is required for the payer's QR camera flow, protected local state or network recovery. H0 blocks all three in the final merged manifest and makes their absence a CI assertion. Camera, Internet, network-state and SecureStore biometric permissions remain because they correspond to explicit payer functions.
 
-### Physical matrix — execution in progress
+### Physical matrix — H0 execution complete
 
 | Scenario | Device A | Device B | Required result |
 |---|---|---|---|
@@ -86,11 +88,12 @@ The first APK also inherited `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and 
 | Restore AsyncStorage only | PASS — zero authority | PASS through cross-device import | Partial public record rejected |
 | Copy public state A -> B | PASS — exported exact bytes | PASS — same hash, zero authority | Device B cannot spend without matching protected key |
 | Complete valid local session, offline boot | Not repeated | PASS after copy/reseed | Exact signed branch restored without RPC |
-| Active on-chain session after local loss | BLOCKED | BLOCKED | Fresh capacity blocked; concrete MWA/RPC recovery still needs integration |
+| Active on-chain session after local loss | DEFERRED — Sprint 12 physical MWA | DEFERRED — Sprint 12 physical MWA | Validator proof blocks fresh capacity; public-cluster physical MWA proof remains scheduled |
 
-### H0 blockers
+### Deferred evidence that does not reorder H1
 
-1. Complete the already-documented Sprint 8 MWA/RPC/certificate-issuer adapter before the active-session online-recovery row can be physically tested. A blocked informational screen is not recovery proof.
+1. Compile/test the concrete MWA/RPC/certificate-issuer boundary during the already-authorized Sprint 8 integration work.
+2. Execute its physical public-cluster proof in Sprint 12, when devnet deployment is authorized. Until then, a blocked informational screen is not described as recovery proof.
 
 ### Reproducible physical commands
 
@@ -129,11 +132,86 @@ Evidence is written under the git-ignored `artifacts/security-hardening/h0/devic
 
 ### H0 decision
 
-**NO-GO / PHYSICAL STORAGE LIFECYCLE PASS.** Devices A and B prove fail-closed behavior for clean install, offline boot, clear data, user-scoped uninstall/reinstall, protected-key loss, public-only restore and an exact cross-device public-state copy. A complete local tuple also survived a no-network relaunch. Live active-session recovery remains incomplete because the production MWA/RPC/issuer adapter is not wired. Per the approved sequence, H1-H7 remain gated.
+**PASS / H1 AUTHORIZED.** Devices A and B prove fail-closed behavior for clean install, offline boot, clear data, user-scoped uninstall/reinstall, protected-key loss, public-only restore and an exact cross-device public-state copy. A complete local tuple also survived a no-network relaunch. Physical public-cluster MWA recovery remains explicitly deferred to Sprint 12; this preserves rather than changes the Prompt Master chronology.
 
-## H1-H7
+## H1 — crash-consistent local storage
 
-Not started. This is intentional and preserves the approved H0-first rule.
+### Gate result
+
+**PASS.** Production payer and merchant state now uses serialized, generation-bound transactions across AsyncStorage and SecureStore. No component becomes authoritative until the public committed manifest is published, and that manifest is accepted only when its generation is bound by the protected current/pending journal.
+
+ADR-0020 records this local-storage architecture. It changes no protocol economics or signed bytes.
+
+### Implemented design
+
+The new `@ogp/mobile-storage` package provides strict local envelopes, SHA-256 payload integrity, random 32-byte generation IDs, a public prepared/committed manifest pair and a protected current/pending journal. For the three-component payer and merchant snapshots, the write sequence is:
+
+```text
+1  public prepared manifest
+2  protected journal(old current, new pending)
+3  public component A
+4  public component B
+5  protected component C
+6  public committed manifest
+7  protected journal(new current, no pending)
+8  prepared-manifest cleanup
+```
+
+The authority boundary is step 6. Failures at steps 1-6 either confer zero authority for an initial write or preserve the previous complete generation for an update. Failures at steps 7-8 return success with cleanup pending, because the exact transaction is already published; the next load deterministically completes recovery instead of encouraging an economic retry.
+
+Payer transactions contain confirmed provisioning, branch/proof state and the protected device secret. The payer persists a new proof before updating the displayed balance or QR. It rereads the durable protected secret before signing and serializes concurrent commits.
+
+Merchant transactions contain the full claim queue, outstanding challenge and protected device identity. Receipt of a valid proof atomically adds/deduplicates the claim and removes the exact outstanding challenge. Receipt-display and claim-sync metadata use the same serialized store. Public legacy merchant state without its protected identity is rejected.
+
+### Fault-injection and corruption evidence
+
+| Scenario | Expected authority | Result |
+|---|---|---|
+| initial commit fails at any write 1-6 | none | PASS |
+| update fails at any write 1-6 | previous generation only | PASS |
+| protected-journal finalization fails after public commit | new complete generation; cleanup pending | PASS |
+| prepared cleanup fails after public commit | new complete generation; cleanup pending | PASS |
+| component from another generation is substituted | fail closed | PASS |
+| payload changes without manifest hash update | fail closed | PASS |
+| public committed pointer is rolled back | fail closed against protected current generation | PASS |
+| public committed pointer is deleted | fail closed while protected current exists | PASS |
+| public-only snapshot lacks protected journal | fail closed | PASS |
+| durable payer state is corrupt while legacy records exist | fail closed; no legacy fallback | PASS |
+| payer commits race | serialized; second complete generation wins | PASS |
+| merchant updates race | serialized; neither update is lost | PASS |
+| evidence insertion and challenge removal is interrupted | previous complete pair only | PASS |
+
+The H1-focused suite contains 17 tests. The complete repository check passed:
+
+- 27 TypeScript test files / 141 tests;
+- payer and merchant strict typechecks;
+- production Metro/Hermes export for both Android entrypoints: payer 3,031,482 bytes, SHA-256 `8DDE2ABE7925904AAC1AE9A9CD993F14FEA9C1E2F6BE486039A2BD4BBEE81E79`; merchant 3,789,272 bytes, SHA-256 `5E6944716123880CE2BF870E3AB242C490C46929623397E075F103553974E305`;
+- six golden vectors verified without modification;
+- one Rust cross-language Borsh/SHA-256/Ed25519 conformance test;
+- 16 program host tests.
+
+### H1 findings and mitigations
+
+1. **Public-only generation pointer — HIGH design weakness found before release.** A public pointer could have selected an older protected component retained on the same device. The protected current/pending journal now binds the accepted generation and makes public rollback fail closed. Status: CLOSED for public-only rollback.
+2. **Payer signing read bypass — HIGH functional defect found during audit.** The first adapter revision restored the durable secret but the signing path still reread the legacy SecureStore key. Signing now loads the protected secret through the same durable adapter. Status: CLOSED.
+3. **Concurrent transaction interleaving — MEDIUM.** Payer commits and merchant read-modify-write operations could otherwise overlap. Both adapters now serialize operations. Status: CLOSED.
+4. **Merchant evidence/challenge split write — HIGH.** The pre-H1 flow wrote a claim and removed its challenge independently. They are now one snapshot commit. Status: CLOSED.
+
+### Remaining H1 limitations
+
+- Individual storage calls are assumed to either resolve or reject. Cross-store atomicity is not assumed.
+- Historical immutable component envelopes are not garbage-collected in H1. This is safe but may grow merchant storage; measurement and a separately fault-tested retention policy are required before optimization.
+- A rooted attacker who can roll back or extract both public and protected stores remains outside a software-only guarantee and stays an OPEN RISK.
+- The explicit Sprint 7 payer fixture and isolated H0 probe remain non-production graphs. Production dependency-graph tests require the H1 adapters.
+- No new H1 APK was installed; the user explicitly deferred APK generation/installation while development continues. H0 physical evidence remains valid, and a future physical build must exercise the production H1 graph before device-security GO.
+
+### H1 decision
+
+**PASS / H2 AUTHORIZED.** Crash consistency and public/protected generation binding are proven at every modeled write boundary. Overall device security remains **NO-GO** until H2 feasibility evidence and later hardening gates are complete.
+
+## H2-H7
+
+H2 device-key feasibility is next. H3-H7 have not started.
 
 ## Protocol preservation audit
 

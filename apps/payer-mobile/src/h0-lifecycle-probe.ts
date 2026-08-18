@@ -88,9 +88,7 @@ export async function evaluateH0Snapshot(snapshot: PayerRecoveryStorageSnapshot)
     { connected: false, walletOwnerHex: null, expectedEnvironment: material.expectedEnvironment },
     {
       load: async () => snapshot,
-      writeBranchState: async () => undefined,
-      writeProvisioning: async () => undefined,
-      writeProtectedDeviceSecret: async () => undefined,
+      commit: async () => undefined,
     },
     { fetchConfirmedRecovery: async () => { throw new Error("RPC proibido no probe H0 offline"); } },
   );

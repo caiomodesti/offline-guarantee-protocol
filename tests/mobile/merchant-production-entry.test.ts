@@ -46,6 +46,7 @@ describe("merchant production entrypoint isolation", () => {
     const packageJson = JSON.parse(readFileSync(resolve(merchantRoot, "package.json"), "utf8")) as { readonly main?: string };
     expect(packageJson.main).toBe("index.ts");
     const graph = relativeDependencyGraph(resolve(merchantRoot, packageJson.main));
+    expect(graph).toContain(resolve(merchantRoot, "src", "merchant-crash-storage.ts"));
     expect(graph).not.toContain(resolve(merchantRoot, "src", "trust.ts"));
     expect(graph).not.toContain(resolve(merchantRoot, "App.development.tsx"));
     expect(graph).not.toContain(resolve(merchantRoot, "index.development.ts"));

@@ -4,6 +4,7 @@
     { "path": "packages/shared-types" },
     { "path": "packages/canonical-codec" },
     { "path": "packages/crypto" },
+    { "path": "packages/mobile-storage" },
     { "path": "packages/credentials" },
     { "path": "packages/offline-ledger" },
     { "path": "packages/protocol-sdk" },
