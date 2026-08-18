@@ -19,7 +19,7 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Android toolchain discovery | PASS | ADB 36.0.0 and Android SDK are installed locally |
 | Connected physical devices | PASS — TWO DISTINCT DEVICES | Device A: Samsung SM-G781B, Android 13 / SDK 33. Device B: Samsung SM-A236M, Android 14 / SDK 34. Both are physical ARM64 devices and were independently ADB-authorized on Android user 0 |
 | Production entrypoint selected | PASS | `apps/payer-mobile/package.json` uses `index.ts`; no demo-manifest substitution was made |
-| TypeScript/mobile suite after H0 resolver change | PASS | 23 test files / 116 tests passed; both mobile typechecks passed |
+| Current TypeScript/mobile suite | PASS | 24 test files / 124 tests passed; both mobile typechecks passed. The additional eight tests cover H0 probe isolation, selective-storage outcomes and scanner input bounds |
 | Production Metro/Hermes bundle | PASS | Expo export produced a 3,011,562-byte Android HBC bundle from `apps/payer-mobile/index.ts`; SHA-256 `D2E04DF4E82ED218C9CA843288E0916803EDD5847B70E14A18E668F4AA1F198D` |
 | Local Windows APK package | ENVIRONMENT NO-GO | CMake/Prefab cannot launch generated `.bat` paths under the workspace path containing spaces; this is distinct from the application bundle |
 | Reproducible Linux APK build | PASS | Private GitHub Actions run `32090462706`, commit `95381a53e225b0e4ef7012868d185e7bcf88f0dd`, completed successfully in 17m58s; 23 test files / 116 tests passed and the hardened production-entrypoint arm64 artifact was uploaded |
@@ -37,6 +37,7 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Offline boot on Device B | PASS | Airplane mode was enabled and both Wi-Fi and mobile data were `0`; payer remained fail-closed, and the pre-test network state was restored in `finally` (`20260818T030507Z`) |
 | Clear data on Device B | PASS | User-0 payer data was cleared; the app returned fail-closed with no fatal startup evidence (`20260818T030533Z`) |
 | Uninstall/reinstall on Device B | PASS | The verified APK was reinstalled with the expected SHA-256; payer returned fail-closed with no fatal startup evidence and remained installed (`20260818T030601Z`) |
+| Selective-storage instrumentation source | PASS — APK PENDING | A separate `protocol.ogp.payer.h0` entrypoint can seed a deterministic valid tuple, delete only SecureStore, restore only the AsyncStorage-equivalent public records, export the exact public bytes by QR, and import them on another device. Production graph isolation and zero-authority outcomes are enforced by tests |
 | Online recovery with active session | **NO-GO — INTEGRATION GAP** | Production UI currently shows a truthful recovery-required screen but has no concrete MWA/RPC/issuer adapter wired behind it |
 
 ### Defect found and corrected
@@ -46,6 +47,8 @@ The first production bundle attempt failed because Metro did not resolve explici
 This is a mobile build integration correction. It does not alter canonical bytes, signatures, keys, session rules, reconciliation, settlement or economics.
 
 The first physical run also exposed four harness-only defects: PowerShell array matching could reject valid multiline `aapt` output; Samsung multi-user package queries required an explicit Android user; PowerShell consumed Android's `-p` argument; and a screenshot could be accepted after another app took focus. The harness now joins `aapt` output before matching, resolves and scopes all lifecycle operations to the active Android user, launches the resolved activity with `am start`, clears the log window, and refuses capture unless `protocol.ogp.payer` is the top resumed activity. One superseded capture showed another finance app and was explicitly rejected; it is not acceptance evidence.
+
+The selective-storage probe is deliberately a different Android package and entrypoint. `index.ts` cannot reach `App.h0.tsx`, `index.h0.ts`, `h0-lifecycle-probe.ts` or `dev-session.ts`; graph tests fail if that boundary changes. Its QR envelope contains only provisioning and branch JSON, rejects extra fields, excludes the protected device secret, and is capped by test below the QR byte-mode limit. The probe never performs RPC and reports economic authority only when the same recovery controller accepts the complete signed tuple.
 
 ### Windows build limitation
 
@@ -73,17 +76,16 @@ The first APK also inherited `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and 
 | Offline boot without a valid local session | PASS | PASS | Recovery required; zero offline authority recreated |
 | Clear data | PASS | PASS | Recovery required; no balance/session recreated |
 | Uninstall/reinstall | PASS | PASS | Recovery required; no balance/session recreated |
-| Lose SecureStore key only | PENDING | PENDING | Partial public record rejected |
-| Restore AsyncStorage only | PENDING | PENDING | Partial public record rejected |
-| Copy public state A -> B | PENDING | PENDING | Device B cannot spend without matching protected key |
+| Lose SecureStore key only | SOURCE PASS — physical probe pending | SOURCE PASS — physical probe pending | Partial public record rejected |
+| Restore AsyncStorage only | SOURCE PASS — physical probe pending | SOURCE PASS — physical probe pending | Partial public record rejected |
+| Copy public state A -> B | Source/export implementation ready | Import implementation ready | Device B cannot spend without matching protected key |
 | Complete valid local session, offline boot | PENDING | PENDING | Exact signed branch restored without RPC |
 | Active on-chain session after local loss | BLOCKED | BLOCKED | Fresh capacity blocked; concrete MWA/RPC recovery still needs integration |
 
 ### H0 blockers
 
-1. Create a controlled, valid source state and copy only its public portion from Device A to Device B; two empty fail-closed installations are not meaningful evidence for this attack.
-2. Add controlled fault-injection support for SecureStore-only loss and AsyncStorage-only restoration without weakening production storage controls.
-3. Complete the already-documented Sprint 8 MWA/RPC/certificate-issuer adapter before the active-session online-recovery row can be physically tested. A blocked informational screen is not recovery proof.
+1. Build and verify the isolated `protocol.ogp.payer.h0` APK in CI, then execute SecureStore loss, public-only restore and QR copy on Devices A and B.
+2. Complete the already-documented Sprint 8 MWA/RPC/certificate-issuer adapter before the active-session online-recovery row can be physically tested. A blocked informational screen is not recovery proof.
 
 ### Reproducible physical commands
 

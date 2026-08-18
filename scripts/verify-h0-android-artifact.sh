@@ -2,6 +2,7 @@
 set -euo pipefail
 
 apk="${1:?usage: verify-h0-android-artifact.sh <apk>}"
+expected_package="${2:-protocol.ogp.payer}"
 test -f "$apk"
 
 android_sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
@@ -10,7 +11,9 @@ build_tools="$(find "$android_sdk/build-tools" -mindepth 1 -maxdepth 1 -type d |
 test -n "$build_tools"
 
 "$build_tools/apksigner" verify --verbose --print-certs "$apk"
-"$build_tools/aapt" dump badging "$apk" | grep -E "^(package:|sdkVersion:|targetSdkVersion:|native-code:)"
+badging="$("$build_tools/aapt" dump badging "$apk")"
+grep -E "^(package:|sdkVersion:|targetSdkVersion:|native-code:)" <<<"$badging"
+grep -q "^package: name='$expected_package'" <<<"$badging"
 
 manifest="$("$build_tools/aapt" dump xmltree "$apk" AndroidManifest.xml)"
 grep -q 'A: android:allowBackup.*0x0' <<<"$manifest"
@@ -41,7 +44,7 @@ expected_permissions="$({
     android.permission.USE_BIOMETRIC \
     android.permission.USE_FINGERPRINT \
     android.permission.VIBRATE \
-    protocol.ogp.payer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+    "$expected_package.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 } | sort)"
 actual_permissions="$(sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" <<<"$permissions" | sort)"
 if ! diff -u <(printf '%s\n' "$expected_permissions") <(printf '%s\n' "$actual_permissions"); then

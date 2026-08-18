@@ -10,6 +10,7 @@ import { OgpValidationError, equalBytes, type PaymentCredential } from "@ogp/sha
 import { QRTransport, assertChallengeEnvironment, type MerchantChallenge, type TransportReceipt } from "@ogp/transports";
 import { createPersistedOnchainSession } from "./src/onchain-provisioning";
 import { evaluatePayerRecovery, type PayerRecoveryChainPort, type PayerRecoveryStoragePort } from "./src/onchain-recovery-controller";
+import { ONCHAIN_BRANCH_STORAGE, ONCHAIN_DEVICE_KEY_STORAGE, ONCHAIN_PROVISIONING_STORAGE } from "./src/payer-storage-keys";
 import { bytesToHex, hexToBytes, type PayerSessionRuntime } from "./src/payer-runtime";
 import { configuredTrustEnvironment } from "./src/runtime-configuration";
 import { bootstrapPayerRuntime, type PayerRuntimeMode } from "./src/runtime-mode";
@@ -17,9 +18,6 @@ import { bootstrapPayerRuntime, type PayerRuntimeMode } from "./src/runtime-mode
 const transport = new QRTransport();
 const DEVICE_KEY_STORAGE = "ogp.session.c3.device-key";
 const SESSION_STATE_STORAGE = "ogp.session.c3.local-state";
-const ONCHAIN_DEVICE_KEY_STORAGE = "ogp.onchain.v1.device-key";
-const ONCHAIN_PROVISIONING_STORAGE = "ogp.onchain.v1.provisioning";
-const ONCHAIN_BRANCH_STORAGE = "ogp.onchain.v1.branch-state";
 
 const recoveryStorage: PayerRecoveryStoragePort = {
   load: async () => ({

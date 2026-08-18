@@ -93,3 +93,75 @@ jobs:
           path: |
             apps/payer-mobile/android/app/build/outputs/apk/release/*.apk
             apps/payer-mobile/android/app/build/outputs/apk/release/*.sha256
+
+  payer-lifecycle-instrumentation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NODE_VERSION: 22.17.0
+      PNPM_VERSION: 11.16.0
+      CI: true
+      NODE_ENV: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Node and pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: |
+          corepack enable
+          corepack prepare "pnpm@$PNPM_VERSION" --activate
+          node --version
+          pnpm --version
+
+      - name: Install Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install workspace dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Verify source and H0 isolation tests
+        run: |
+          test "$(node -p "require('./apps/payer-mobile/package.json').main")" = "index.ts"
+          test "$(node -p "require('./apps/payer-mobile/package.h0.json').main")" = "index.h0.ts"
+          test "$(node -p "require('./apps/payer-mobile/app.h0.json').expo.android.package")" = "protocol.ogp.payer.h0"
+          corepack pnpm typecheck
+          corepack pnpm typecheck:mobile
+          corepack pnpm test:ts
+
+      - name: Build shared protocol packages
+        run: corepack pnpm build
+
+      - name: Select isolated H0 entrypoint and package
+        run: |
+          cp apps/payer-mobile/package.h0.json apps/payer-mobile/package.json
+          cp apps/payer-mobile/app.h0.json apps/payer-mobile/app.json
+
+      - name: Generate isolated H0 Android project
+        run: corepack pnpm --filter payer-mobile exec expo prebuild --platform android --no-install --clean
+
+      - name: Compile arm64 H0 release APK
+        working-directory: apps/payer-mobile/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
+
+      - name: Verify isolated H0 artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find apps/payer-mobile/android/app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$apk"
+          bash scripts/verify-h0-android-artifact.sh "$apk" protocol.ogp.payer.h0
+
+      - name: Upload isolated H0 instrumentation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-hardening-h0-payer-lifecycle-instrumentation-arm64
+          if-no-files-found: error
+          path: |
+            apps/payer-mobile/android/app/build/outputs/apk/release/*.apk
+            apps/payer-mobile/android/app/build/outputs/apk/release/*.sha256

@@ -52,6 +52,9 @@ describe("payer production entrypoint isolation", () => {
     expect(graph).not.toContain(resolve(payerRoot, "src", "dev-session.ts"));
     expect(graph).not.toContain(resolve(payerRoot, "App.development.tsx"));
     expect(graph).not.toContain(resolve(payerRoot, "index.development.ts"));
+    expect(graph).not.toContain(resolve(payerRoot, "src", "h0-lifecycle-probe.ts"));
+    expect(graph).not.toContain(resolve(payerRoot, "App.h0.tsx"));
+    expect(graph).not.toContain(resolve(payerRoot, "index.h0.ts"));
   });
 
   it("keeps the fixture reachable only from the explicit demonstration graph", () => {
@@ -62,5 +65,16 @@ describe("payer production entrypoint isolation", () => {
     const graph = relativeDependencyGraph(resolve(payerRoot, "index.development.ts"));
     expect(graph).toContain(resolve(payerRoot, "src", "dev-session.ts"));
     expect(graph).toContain(resolve(payerRoot, "App.development.tsx"));
+  });
+
+  it("keeps H0 fixture material reachable only from the isolated H0 graph", () => {
+    const productionPackage = JSON.parse(readFileSync(resolve(payerRoot, "package.json"), "utf8")) as Record<string, unknown>;
+    const h0Package = JSON.parse(readFileSync(resolve(payerRoot, "package.h0.json"), "utf8")) as Record<string, unknown>;
+    expect({ ...h0Package, main: productionPackage.main }).toEqual(productionPackage);
+
+    const graph = relativeDependencyGraph(resolve(payerRoot, "index.h0.ts"));
+    expect(graph).toContain(resolve(payerRoot, "src", "h0-lifecycle-probe.ts"));
+    expect(graph).toContain(resolve(payerRoot, "src", "dev-session.ts"));
+    expect(graph).toContain(resolve(payerRoot, "App.h0.tsx"));
   });
 });
