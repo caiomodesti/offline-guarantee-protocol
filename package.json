@@ -26,6 +26,7 @@
     "@ogp/canonical-codec": "workspace:*",
     "@ogp/credentials": "workspace:*",
     "@ogp/crypto": "workspace:*",
+    "@ogp/mobile-storage": "workspace:*",
     "@ogp/offline-ledger": "workspace:*",
     "@ogp/protocol-sdk": "workspace:*",
     "@ogp/reconciliation": "workspace:*",

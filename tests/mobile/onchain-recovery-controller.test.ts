@@ -28,9 +28,7 @@ function expectedEnvironment(): OfflineTrustEnvironment {
 function storage(snapshot: PayerRecoveryStorageSnapshot): PayerRecoveryStoragePort {
   return {
     load: vi.fn(async () => snapshot),
-    writeBranchState: vi.fn(async () => undefined),
-    writeProvisioning: vi.fn(async () => undefined),
-    writeProtectedDeviceSecret: vi.fn(async () => undefined),
+    commit: vi.fn(async () => undefined),
   };
 }
 
@@ -101,17 +99,15 @@ describe("payer on-chain recovery controller", () => {
     expect(rpc.fetchConfirmedRecovery).not.toHaveBeenCalled();
   });
 
-  it("writes the protected key last and leaves any interrupted commit fail-closed", async () => {
+  it("delegates the complete snapshot to one crash-consistent commit boundary", async () => {
     const runtime = loadDevelopmentSession();
     const persisted = createPersistedOnchainSession({ sessionAccount: bytes(0x44), runtime });
-    const order: string[] = [];
+    const commit = vi.fn(async () => undefined);
     const port: PayerRecoveryStoragePort = {
       load: vi.fn(async () => ({ provisioningJson: null, branchStateJson: null, deviceSecretHex: null })),
-      writeBranchState: vi.fn(async () => { order.push("branch"); }),
-      writeProvisioning: vi.fn(async () => { order.push("provisioning"); }),
-      writeProtectedDeviceSecret: vi.fn(async () => { order.push("secret"); }),
+      commit,
     };
     await persistConfirmedProvisioning(port, persisted);
-    expect(order).toEqual(["branch", "provisioning", "secret"]);
+    expect(commit).toHaveBeenCalledExactlyOnceWith(persisted);
   });
 });

@@ -49,6 +49,7 @@ describe("payer production entrypoint isolation", () => {
     expect(packageJson.main).toBe("index.ts");
 
     const graph = relativeDependencyGraph(resolve(payerRoot, packageJson.main));
+    expect(graph).toContain(resolve(payerRoot, "src", "payer-crash-storage.ts"));
     expect(graph).not.toContain(resolve(payerRoot, "src", "dev-session.ts"));
     expect(graph).not.toContain(resolve(payerRoot, "App.development.tsx"));
     expect(graph).not.toContain(resolve(payerRoot, "index.development.ts"));

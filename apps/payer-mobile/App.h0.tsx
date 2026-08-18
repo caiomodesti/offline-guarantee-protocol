@@ -33,9 +33,11 @@ const storagePort: PayerRecoveryStoragePort = {
     branchStateJson: await AsyncStorage.getItem(ONCHAIN_BRANCH_STORAGE),
     deviceSecretHex: await SecureStore.getItemAsync(ONCHAIN_DEVICE_KEY_STORAGE),
   }),
-  writeBranchState: async (value) => AsyncStorage.setItem(ONCHAIN_BRANCH_STORAGE, value),
-  writeProvisioning: async (value) => AsyncStorage.setItem(ONCHAIN_PROVISIONING_STORAGE, value),
-  writeProtectedDeviceSecret: async (value) => SecureStore.setItemAsync(ONCHAIN_DEVICE_KEY_STORAGE, value, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY }),
+  commit: async (snapshot) => {
+    await AsyncStorage.setItem(ONCHAIN_BRANCH_STORAGE, snapshot.branchStateJson);
+    await AsyncStorage.setItem(ONCHAIN_PROVISIONING_STORAGE, snapshot.provisioningJson);
+    await SecureStore.setItemAsync(ONCHAIN_DEVICE_KEY_STORAGE, snapshot.deviceSecretHex, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY });
+  },
 };
 
 async function resetStorage(): Promise<void> {
@@ -101,8 +103,8 @@ export default function H0LifecycleApp() {
   });
   const restorePublicOnly = () => run(async () => {
     await resetStorage();
-    await storagePort.writeBranchState(material.publicCopy.branchStateJson);
-    await storagePort.writeProvisioning(material.publicCopy.provisioningJson);
+    await AsyncStorage.setItem(ONCHAIN_BRANCH_STORAGE, material.publicCopy.branchStateJson);
+    await AsyncStorage.setItem(ONCHAIN_PROVISIONING_STORAGE, material.publicCopy.provisioningJson);
     return inspect("public-only");
   });
   const reset = () => run(async () => { await resetStorage(); return inspect("reset"); });
@@ -114,8 +116,8 @@ export default function H0LifecycleApp() {
       try {
         const imported = parseH0PublicCopy(value);
         await resetStorage();
-        await storagePort.writeBranchState(imported.branchStateJson);
-        await storagePort.writeProvisioning(imported.provisioningJson);
+        await AsyncStorage.setItem(ONCHAIN_BRANCH_STORAGE, imported.branchStateJson);
+        await AsyncStorage.setItem(ONCHAIN_PROVISIONING_STORAGE, imported.provisioningJson);
         return inspect("imported-public");
       } finally {
         importLocked.current = false;

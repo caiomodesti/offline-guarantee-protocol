@@ -9,7 +9,7 @@ defi:
   emergency_pause: true
 project:
   name: Offline Guarantee Protocol
-  phase: sprint-8-normal-onchain-e2e
+  phase: security-hardening-h2-device-key-feasibility
   settlement_asset: mock-spl-token
   money_representation: u64-minor-units
 offline_ledger:
@@ -44,6 +44,9 @@ mobile:
   h0_selective_storage_probe_status: pass-source-ci-apk-and-two-device-physical-run-32095043653
   h0_probe_apk_sha256: 7f54335e2b8359f2bb37df721c53900e1a76ffb3df696900b6688d36e756a18f
   h0_probe_package: protocol.ogp.payer.h0
+  h0_gate_status: pass-physical-storage-lifecycle-mwa-public-cluster-proof-deferred-sprint-12
+  h1_crash_consistency_status: pass-27-files-141-tests-protected-generation-journal
+  h1_android_hermes_bundle_status: pass-payer-and-merchant-production-entrypoints
   android_backup_policy_status: pass-ci-local-static-and-two-device-clear-reinstall
   android_permission_policy_status: pass-ci-local-static-minimal-allowlist
   production_fixture_separation_status: pass-source-graph-increment-8.7

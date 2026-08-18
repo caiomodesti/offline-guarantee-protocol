@@ -12,9 +12,7 @@ export interface PayerRecoveryStorageSnapshot {
 
 export interface PayerRecoveryStoragePort {
   readonly load: () => Promise<PayerRecoveryStorageSnapshot>;
-  readonly writeBranchState: (value: string) => Promise<void>;
-  readonly writeProvisioning: (value: string) => Promise<void>;
-  readonly writeProtectedDeviceSecret: (value: string) => Promise<void>;
+  readonly commit: (snapshot: PersistedOnchainSession) => Promise<void>;
 }
 
 export interface PayerRecoveryChainPort {
@@ -121,13 +119,7 @@ export async function evaluatePayerRecovery(
   };
 }
 
-/**
- * Durable commit barrier for a newly confirmed provisioned session. Public
- * signed material is written first and the protected device secret last. A
- * crash at any point leaves a partial record that the bootstrap rejects.
- */
+/** Publishes a newly confirmed session through one crash-consistent commit boundary. */
 export async function persistConfirmedProvisioning(storage: PayerRecoveryStoragePort, persisted: PersistedOnchainSession): Promise<void> {
-  await storage.writeBranchState(persisted.branchStateJson);
-  await storage.writeProvisioning(persisted.provisioningJson);
-  await storage.writeProtectedDeviceSecret(persisted.deviceSecretHex);
+  await storage.commit(persisted);
 }

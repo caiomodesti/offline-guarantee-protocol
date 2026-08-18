@@ -20,6 +20,9 @@ importers:
       '@ogp/crypto':
         specifier: workspace:*
         version: link:packages/crypto
+      '@ogp/mobile-storage':
+        specifier: workspace:*
+        version: link:packages/mobile-storage
       '@ogp/offline-ledger':
         specifier: workspace:*
         version: link:packages/offline-ledger
@@ -96,6 +99,9 @@ importers:
       '@ogp/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
+      '@ogp/mobile-storage':
+        specifier: workspace:*
+        version: link:../../packages/mobile-storage
       '@ogp/protocol-sdk':
         specifier: workspace:*
         version: link:../../packages/protocol-sdk
@@ -160,6 +166,9 @@ importers:
       '@ogp/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
+      '@ogp/mobile-storage':
+        specifier: workspace:*
+        version: link:../../packages/mobile-storage
       '@ogp/protocol-sdk':
         specifier: workspace:*
         version: link:../../packages/protocol-sdk
@@ -239,6 +248,12 @@ importers:
       '@noble/hashes':
         specifier: 2.3.0
         version: 2.3.0
+
+  packages/mobile-storage:
+    dependencies:
+      '@ogp/crypto':
+        specifier: workspace:*
+        version: link:../crypto
 
   packages/offline-ledger:
     dependencies:

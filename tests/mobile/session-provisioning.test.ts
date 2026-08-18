@@ -46,9 +46,11 @@ function storage(): PayerRecoveryStoragePort & { readonly values: Record<string,
   return {
     values,
     load: async () => ({ provisioningJson: null, branchStateJson: null, deviceSecretHex: null }),
-    writeBranchState: async (value) => { values.branch = value; },
-    writeProvisioning: async (value) => { values.provisioning = value; },
-    writeProtectedDeviceSecret: async (value) => { values.secret = value; },
+    commit: async (snapshot) => {
+      values.branch = snapshot.branchStateJson;
+      values.provisioning = snapshot.provisioningJson;
+      values.secret = snapshot.deviceSecretHex;
+    },
   };
 }
 

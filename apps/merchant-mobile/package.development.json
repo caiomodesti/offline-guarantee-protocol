@@ -5,6 +5,7 @@
   "dependencies": {
     "@ogp/credentials": "workspace:*",
     "@ogp/crypto": "workspace:*",
+    "@ogp/mobile-storage": "workspace:*",
     "@ogp/protocol-sdk": "workspace:*",
     "@ogp/shared-types": "workspace:*",
     "@ogp/transports": "workspace:*",
