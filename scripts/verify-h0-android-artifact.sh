@@ -32,6 +32,23 @@ for forbidden_permission in \
   fi
 done
 
+permissions="$("$build_tools/aapt" dump permissions "$apk")"
+expected_permissions="$({
+  printf '%s\n' \
+    android.permission.ACCESS_NETWORK_STATE \
+    android.permission.CAMERA \
+    android.permission.INTERNET \
+    android.permission.USE_BIOMETRIC \
+    android.permission.USE_FINGERPRINT \
+    android.permission.VIBRATE \
+    protocol.ogp.payer.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+} | sort)"
+actual_permissions="$(sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" <<<"$permissions" | sort)"
+if ! diff -u <(printf '%s\n' "$expected_permissions") <(printf '%s\n' "$actual_permissions"); then
+  echo 'H0 payer Android permission allowlist changed' >&2
+  exit 1
+fi
+
 unzip -l "$apk" | grep -E 'assets/(index\.android\.bundle|_expo/static/js/android/.+\.(js|hbc))'
 unzip -l "$apk" | grep -q 'lib/arm64-v8a/'
 if unzip -l "$apk" | grep -Eq 'lib/(armeabi-v7a|x86|x86_64)/'; then
