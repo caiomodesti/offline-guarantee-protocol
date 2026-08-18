@@ -11,6 +11,7 @@ This runbook measures platform capabilities only. It does not change the OGP sig
 - signature, exact package, zero-permission manifest, backup/debug policy and build SHA-256 are reverified immediately before installation;
 - evidence directory uses an operator label, never the device serial;
 - no raw key, certificate, attestation record or unique device identifier is emitted;
+- captured output is base64-framed, decoded as strict JSON, bound to the requested device label, rejected on fatal/incomplete output and stored with a SHA-256 sidecar;
 - all measurement aliases are ephemeral and deleted after use.
 
 ## Build

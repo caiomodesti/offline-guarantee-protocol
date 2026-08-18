@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyInfo;
 import android.security.keystore.KeyProperties;
+import android.util.Base64;
 import android.util.Log;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -58,7 +59,8 @@ public final class ProbeActivity extends Activity {
         output = error(failure).toString();
       }
       final String rendered = output;
-      Log.i(TAG, rendered);
+      String encoded = Base64.encodeToString(rendered.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+      Log.i(TAG, "OGP_H2_JSON_B64=" + encoded);
       runOnUiThread(() -> text.setText(rendered));
     }, "ogp-h2-keystore-probe").start();
   }

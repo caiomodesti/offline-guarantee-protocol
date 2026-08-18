@@ -49,9 +49,9 @@ H2 adds a standalone package, `protocol.ogp.h2probe`, which is not linked from e
 - P-256 ECDSA with an attestation challenge in default Android Keystore and requested StrongBox;
 - experimental Ed25519 in default Android Keystore and requested StrongBox.
 
-For generated private/secret keys it records support, actual `KeyInfo` security level, round-trip/signature success and whether `getEncoded()` is null. For P-256 it records only attestation-chain length and presence of the Android attestation extension. It does not emit raw private keys, public keys, certificates, attestation records, device serials or Android IDs.
+For generated private/secret keys it records support, actual `KeyInfo` security level, round-trip/signature success and whether `getEncoded()` is null. For P-256 it records only attestation-chain length and presence of the Android attestation extension. It does not emit raw private keys, public keys, certificates, attestation records, device serials or Android IDs. The host collector accepts only one base64-framed JSON result bound to the requested device label, rejects fatal or incomplete output and hashes the stored evidence.
 
-The probe APK is non-debuggable, disables backup and declares no permissions, including no Internet permission. Build `20260818T045805Z` is 16,787 bytes with SHA-256 `1721A5F96C5329CB3813BADE13FF55CA400CA14D4430B5AB99430A48FE8C17E1`; APK Signature Schemes v1, v2 and v3 verify. The signing key is ephemeral and makes this a research artifact, not a distributable application.
+The probe APK is non-debuggable, disables backup and declares no permissions, including no Internet permission. Build `20260818T050139Z` is 16,787 bytes with SHA-256 `5BBD119569083B2A91C7AFE0CD276605A1311D2FD0D77F35F2F8A1D6C2408A8E`; APK Signature Schemes v1, v2 and v3 verify. The signing key is ephemeral and makes this a research artifact, not a distributable application.
 
 Physical results are intentionally not inferred from source or H0 logs. Both previously tested phones are presently disconnected, so the Device A/Device B capability rows remain pending.
 

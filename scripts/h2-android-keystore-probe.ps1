@@ -138,15 +138,36 @@ function Capture-Probe {
   do {
     Start-Sleep -Milliseconds 500
     $captured = (& $adb -s $Serial logcat -d -s 'OGP_H2:I' '*:S' | Out-String)
-  } while ($captured -notmatch 'ogp-h2-keystore-capability-v1' -and (Get-Date) -lt $deadline)
-  if ($captured -notmatch 'ogp-h2-keystore-capability-v1') { throw 'Resultado H2 não apareceu no logcat dentro de 45 segundos' }
+  } while ($captured -notmatch 'OGP_H2_JSON_B64=([A-Za-z0-9+/=]+)' -and (Get-Date) -lt $deadline)
+  if ($captured -notmatch 'OGP_H2_JSON_B64=([A-Za-z0-9+/=]+)') { throw 'Resultado H2 não apareceu no logcat dentro de 45 segundos' }
+  $encoded = $Matches[1]
+  try {
+    $json = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
+    $result = $json | ConvertFrom-Json
+  } catch {
+    throw 'Resultado H2 não é JSON base64 íntegro'
+  }
+  if ($result.schema -ne 'ogp-h2-keystore-capability-v1') { throw 'Schema inesperado no resultado H2' }
+  if ($result.device_label -ne $DeviceLabel) { throw 'Resultado H2 pertence a outro label de aparelho/execução' }
+  if ($result.fatal -eq $true) { throw 'Probe H2 reportou falha fatal; resultado não serve como evidência' }
+  if ($result.network_permission -ne $false -or $result.protocol_effect -ne 'none') { throw 'Resultado H2 viola isolamento esperado' }
+  if ($result.attestation_verification -ne 'not-performed-on-device') { throw 'Resultado H2 atribui confiança indevida à verificação local' }
+  if ($null -eq $result.measurements -or @($result.measurements).Count -ne 6) { throw 'Resultado H2 não contém as seis medições esperadas' }
+  foreach ($measurement in @($result.measurements)) {
+    if ([string]::IsNullOrWhiteSpace($measurement.operation) -or $null -eq $measurement.strongbox_requested -or $null -eq $measurement.supported) {
+      throw 'Medição H2 incompleta'
+    }
+  }
   $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
   $evidenceRoot = Join-Path $artifactRoot "evidence\$DeviceLabel\$stamp"
   New-Item -ItemType Directory -Force -Path $evidenceRoot | Out-Null
-  $evidence = Join-Path $evidenceRoot 'keystore-capabilities.log'
-  Set-Content -LiteralPath $evidence -Value $captured -Encoding utf8
+  $evidence = Join-Path $evidenceRoot 'keystore-capabilities.json'
+  Set-Content -LiteralPath $evidence -Value $json -Encoding utf8
+  $hash = (Get-FileHash -LiteralPath $evidence -Algorithm SHA256).Hash
+  Set-Content -LiteralPath "$evidence.sha256" -Value "$hash  keystore-capabilities.json" -Encoding ascii
   Write-Output "H2_EVIDENCE=$evidence"
-  Write-Output $captured
+  Write-Output "H2_EVIDENCE_SHA256=$hash"
+  Write-Output $json
 }
 
 switch ($Action) {

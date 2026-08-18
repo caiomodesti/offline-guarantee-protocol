@@ -48,7 +48,7 @@ mobile:
   h1_crash_consistency_status: pass-27-files-141-tests-protected-generation-journal
   h1_android_hermes_bundle_status: pass-payer-and-merchant-production-entrypoints
   h2_device_key_spike_status: in-progress-source-audit-and-isolated-apk-pass-two-device-measurement-pending
-  h2_probe_apk_sha256: 1721a5f96c5329cb3813bade13ff55ca400ca14d4430b5ab99430a48fe8c17e1
+  h2_probe_apk_sha256: 5bbd119569083b2a91c7afe0cd276605a1311d2fd0d77f35f2f8a1d6c2408a8e
   production_device_signer: software-ed25519-seed-securestore-wrapped-unchanged
   android_backup_policy_status: pass-ci-local-static-and-two-device-clear-reinstall
   android_permission_policy_status: pass-ci-local-static-minimal-allowlist

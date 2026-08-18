@@ -231,16 +231,16 @@ Static and APK verification results:
 
 | Property | Result |
 |---|---|
-| Build timestamp | `20260818T045805Z` |
+| Build timestamp | `20260818T050139Z` |
 | APK size | 16,787 bytes |
-| APK SHA-256 | `1721A5F96C5329CB3813BADE13FF55CA400CA14D4430B5AB99430A48FE8C17E1` |
+| APK SHA-256 | `5BBD119569083B2A91C7AFE0CD276605A1311D2FD0D77F35F2F8A1D6C2408A8E` |
 | Package/version | `protocol.ogp.h2probe` / `1` / `0.1.0-h2` |
 | SDK | min 23 / target 36 |
 | Permissions | none; no Internet permission |
 | Backup/debug | `allowBackup=false`; `debuggable=false` |
 | APK signature verification | v1, v2 and v3 PASS; ephemeral probe-only certificate |
 | Pre-install controls | Exact package, signature, no permissions, backup/debug policy and build SHA-256 sidecar are reverified; explicit physical serial required; emulator rejected |
-| Data emitted | device label/model/OS, capability booleans, security levels and functional outcomes; no serial, Android ID, raw key, certificate or attestation record |
+| Data emitted | Device label/model/OS, capability booleans, security levels and functional outcomes; no serial, Android ID, raw key, certificate or attestation record. Host accepts only complete label-bound JSON and writes a SHA-256 sidecar |
 | Protocol effect | none |
 
 The Java 8 compilation emits a non-blocking bootstrap-classpath warning under JDK 17 and a deprecation notice because pre-API-31 devices require the legacy `KeyInfo.isInsideSecureHardware()` compatibility path. D8, packaging, alignment and signature verification pass.

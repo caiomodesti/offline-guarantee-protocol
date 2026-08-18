@@ -14,6 +14,7 @@ describe("isolated H2 Android Keystore capability probe", () => {
     expect(manifest).toContain('android:allowBackup="false"');
     expect(manifest).toContain('android:debuggable="false"');
     expect(source).not.toMatch(/ANDROID_ID|Build\.SERIAL|getImei|getDeviceId|certificate\.getEncoded/);
+    expect(source).toContain("OGP_H2_JSON_B64=");
     expect(source).toContain('result.put("network_permission", false)');
     expect(source).toContain('result.put("protocol_effect", "none")');
   });
@@ -36,5 +37,11 @@ describe("isolated H2 Android Keystore capability probe", () => {
     expect(harness).toContain('android:debuggable');
     expect(harness).toContain('"$signed.sha256"');
     expect(harness).toContain("if ([string]::IsNullOrWhiteSpace($Serial))");
+    expect(harness).toContain("FromBase64String");
+    expect(harness).toContain("ConvertFrom-Json");
+    expect(harness).toContain("@($result.measurements).Count -ne 6");
+    expect(harness).toContain("$result.device_label -ne $DeviceLabel");
+    expect(harness).toContain("$result.fatal -eq $true");
+    expect(harness).toContain('keystore-capabilities.json');
   });
 });
