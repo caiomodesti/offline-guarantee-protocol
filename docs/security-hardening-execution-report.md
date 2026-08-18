@@ -22,12 +22,12 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | TypeScript/mobile suite after H0 resolver change | PASS | 23 test files / 116 tests passed; both mobile typechecks passed |
 | Production Metro/Hermes bundle | PASS | Expo export produced a 3,011,562-byte Android HBC bundle from `apps/payer-mobile/index.ts`; SHA-256 `D2E04DF4E82ED218C9CA843288E0916803EDD5847B70E14A18E668F4AA1F198D` |
 | Local Windows APK package | ENVIRONMENT NO-GO | CMake/Prefab cannot launch generated `.bat` paths under the workspace path containing spaces; this is distinct from the application bundle |
-| Reproducible Linux APK build | PASS | Private GitHub Actions run `31992215121` completed successfully in 17m55s; 23 test files / 116 tests passed and the production-entrypoint arm64 artifact was uploaded |
-| Artifact integrity | PASS | Artifact ZIP: 26,119,300 bytes, SHA-256 `6552000D0F5837A8661279ED2483E33DF3914A9D4BCD0716068A170893C5D7D2`, exactly matching GitHub's artifact digest |
-| APK validation | PASS — H0 TEST BUILD | APK: 50,328,656 bytes, SHA-256 `AEB108722FF7D5819E1F9BA3B8F713E4F1D486899E735BD2D3B9E4AAEBE0C24F`; package `protocol.ogp.payer`; min SDK 24; target SDK 36; `arm64-v8a` only; `assets/index.android.bundle` present; APK Signature Scheme v2 verified |
-| Android backup policy | HARDENING IN PROGRESS | First H0 APK allowed backup with rules that excluded SecureStore and all database/file/root domains. The payer source now sets `allowBackup=false` and disables generated backup/extraction rules; CI and physical proof remain pending for the replacement APK |
+| Reproducible Linux APK build | PASS | Private GitHub Actions run `32090462706`, commit `95381a53e225b0e4ef7012868d185e7bcf88f0dd`, completed successfully in 17m58s; 23 test files / 116 tests passed and the hardened production-entrypoint arm64 artifact was uploaded |
+| Artifact integrity | PASS | Final artifact ZIP: 26,119,205 bytes, SHA-256 `838C8F02A0BF4F403A0C7722525A46355203B3709D87EFEEE10BE2C891718511`, exactly matching GitHub's artifact digest |
+| APK validation | PASS — H0 TEST BUILD | Final APK: 50,328,556 bytes, SHA-256 `6FB693CF091A77DE1B61333A1F91175FA890DEC1562218768DBBC369ECB9D140`; package `protocol.ogp.payer`; min SDK 24; target SDK 36; `arm64-v8a` only; `assets/index.android.bundle` present; APK Signature Scheme v2 verified |
+| Android backup policy | PASS — CI + LOCAL STATIC | Final APK has `allowBackup=false` and no `fullBackupContent` or `dataExtractionRules`; cloud backup, automatic restore and device transfer are disabled for the payer. Physical lifecycle proof remains pending |
 | Android debug policy | PASS — STATIC | `android:debuggable` is absent from the release manifest and therefore defaults to false |
-| Android permission minimization | HARDENING IN PROGRESS | First H0 APK inherited optional overlay and legacy external-storage permissions from the Expo template. Payer source now blocks all three; CI enforces an exact functional allowlist and is triggered by verifier-script changes; replacement APK proof is pending |
+| Android permission minimization | PASS — CI + LOCAL STATIC | Final APK excludes overlay and external-storage permissions. Exact allowlist: camera, Internet, network state, biometric/fingerprint, vibration and the package-scoped non-exported receiver permission |
 | Physical evidence harness | PASS — READY | `scripts/h0-android-lifecycle.ps1` requires an explicit authorized physical-device serial, rejects emulators, verifies APK signature/package/arm64/SHA-256 sidecar and device ABI before installation, scopes destructive actions to `protocol.ogp.payer`, and captures device inventory, logcat and screenshot evidence |
 | Clear-data/reinstall matrix | PENDING | Requires the payer APK plus two ADB-authorized devices |
 | Online recovery with active session | **NO-GO — INTEGRATION GAP** | Production UI currently shows a truthful recovery-required screen but has no concrete MWA/RPC/issuer adapter wired behind it |
@@ -44,7 +44,7 @@ The full local Gradle package also failed in Expo/Nitro CMake configuration beca
 
 ### CI APK proof
 
-GitHub Actions run `31992215121`, commit `8a3091c34c9617b74bdd001cb84218f602a6b3f1`, completed successfully. The downloaded ZIP digest exactly matched the digest published by GitHub, and the APK hash exactly matched the `.sha256` sidecar generated inside the trusted job.
+The initial GitHub Actions run `31992215121`, commit `8a3091c34c9617b74bdd001cb84218f602a6b3f1`, completed successfully and established the first production-entrypoint artifact. After manifest hardening, final run `32090462706`, commit `95381a53e225b0e4ef7012868d185e7bcf88f0dd`, passed the complete source suite and the strengthened artifact verifier. The downloaded final ZIP digest exactly matched the digest published by GitHub, and the final APK hash exactly matched the `.sha256` sidecar generated inside the trusted job.
 
 The APK is signed by the automatically generated Android debug certificate (`SHA-256 FAC61745DC0903786FB9EDE62A962B399F7348F0BB6F899B8332667591033B9C`) even though Gradle used the release build variant. This is acceptable only for the H0 physical lifecycle test. It is explicitly **not** a production/distribution signing decision.
 
@@ -88,7 +88,7 @@ The harness never chooses a device implicitly. Replace `<serial>` with a serial 
 The currently verified APK path is git-ignored and local-only:
 
 ```text
-artifacts/security-hardening/h0/ci-run-31992215121/extracted/app-release.apk
+artifacts/security-hardening/h0/ci-run-32090462706/extracted/app-release.apk
 ```
 
 Evidence is written under the git-ignored `artifacts/security-hardening/h0/devices/<serial>/<UTC timestamp>/` directory. Network-off and recovery actions remain operator-observed steps: the harness does not silently change airplane mode, Wi-Fi, mobile data or wallet state.
