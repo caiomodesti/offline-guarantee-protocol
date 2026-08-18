@@ -17,7 +17,7 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Check | Result | Evidence |
 |---|---|---|
 | Android toolchain discovery | PASS | ADB 36.0.0 and Android SDK are installed locally |
-| Connected physical devices | **NO-GO** | `adb devices -l` returned an empty device list |
+| Connected physical devices | PARTIAL PASS | Device A: physical Samsung SM-G781B, Android 13 / SDK 33, ARM64, ADB-authorized on Android user 0. Device B remains pending |
 | Production entrypoint selected | PASS | `apps/payer-mobile/package.json` uses `index.ts`; no demo-manifest substitution was made |
 | TypeScript/mobile suite after H0 resolver change | PASS | 23 test files / 116 tests passed; both mobile typechecks passed |
 | Production Metro/Hermes bundle | PASS | Expo export produced a 3,011,562-byte Android HBC bundle from `apps/payer-mobile/index.ts`; SHA-256 `D2E04DF4E82ED218C9CA843288E0916803EDD5847B70E14A18E668F4AA1F198D` |
@@ -25,11 +25,15 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Reproducible Linux APK build | PASS | Private GitHub Actions run `32090462706`, commit `95381a53e225b0e4ef7012868d185e7bcf88f0dd`, completed successfully in 17m58s; 23 test files / 116 tests passed and the hardened production-entrypoint arm64 artifact was uploaded |
 | Artifact integrity | PASS | Final artifact ZIP: 26,119,205 bytes, SHA-256 `838C8F02A0BF4F403A0C7722525A46355203B3709D87EFEEE10BE2C891718511`, exactly matching GitHub's artifact digest |
 | APK validation | PASS — H0 TEST BUILD | Final APK: 50,328,556 bytes, SHA-256 `6FB693CF091A77DE1B61333A1F91175FA890DEC1562218768DBBC369ECB9D140`; package `protocol.ogp.payer`; min SDK 24; target SDK 36; `arm64-v8a` only; `assets/index.android.bundle` present; APK Signature Scheme v2 verified |
-| Android backup policy | PASS — CI + LOCAL STATIC | Final APK has `allowBackup=false` and no `fullBackupContent` or `dataExtractionRules`; cloud backup, automatic restore and device transfer are disabled for the payer. Physical lifecycle proof remains pending |
+| Android backup policy | PASS — CI + LOCAL STATIC + DEVICE A LIFECYCLE | Final APK has `allowBackup=false` and no `fullBackupContent` or `dataExtractionRules`; cloud backup, automatic restore and device transfer are disabled for the payer. Device A clear-data and reinstall behavior passed; selective public-store injection remains pending |
 | Android debug policy | PASS — STATIC | `android:debuggable` is absent from the release manifest and therefore defaults to false |
 | Android permission minimization | PASS — CI + LOCAL STATIC | Final APK excludes overlay and external-storage permissions. Exact allowlist: camera, Internet, network state, biometric/fingerprint, vibration and the package-scoped non-exported receiver permission |
-| Physical evidence harness | PASS — READY | `scripts/h0-android-lifecycle.ps1` requires an explicit authorized physical-device serial, rejects emulators, verifies APK signature/package/arm64/SHA-256 sidecar and device ABI before installation, scopes destructive actions to `protocol.ogp.payer`, and captures device inventory, logcat and screenshot evidence |
-| Clear-data/reinstall matrix | PENDING | Requires the payer APK plus two ADB-authorized devices |
+| Physical evidence harness | PASS — DEVICE A PROVEN | `scripts/h0-android-lifecycle.ps1` requires an explicit authorized physical-device serial, rejects emulators, verifies APK signature/package/arm64/SHA-256 sidecar and device ABI before installation, scopes destructive actions to `protocol.ogp.payer` and the active Android user, clears logcat before launch, refuses screenshots unless the payer is foreground, and captures device inventory, logcat and screenshot evidence |
+| Clean install on Device A | PASS — NETWORK NOT CONTROLLED | Production APK installed on an empty user-0 package slot, showed `Conexão necessária`, and stated that no payment, session key or limit was recreated. Isolated startup log had no fatal/React Native crash. Offline boot remains a separate pending row |
+| Clear data on Device A | PASS | `pm clear --user 0 protocol.ogp.payer` succeeded; payer returned to the same fail-closed recovery-required screen with no fatal startup evidence (`20260818T025510Z`) |
+| Uninstall/reinstall on Device A | PASS | User-0 uninstall/reinstall succeeded with the verified APK SHA-256 `6FB693CF091A77DE1B61333A1F91175FA890DEC1562218768DBBC369ECB9D140`; payer returned fail-closed with no fatal startup evidence (`20260818T025559Z`) |
+| Offline boot on Device A | PASS | During capture, airplane mode was enabled and both Wi-Fi and mobile data were `0`; payer remained on the recovery-required screen and recreated no authority. No fatal startup evidence was present. The pre-test network state was restored in `finally` (`20260818T025858Z`) |
+| Device B lifecycle matrix | PENDING | Requires a second ADB-authorized physical device |
 | Online recovery with active session | **NO-GO — INTEGRATION GAP** | Production UI currently shows a truthful recovery-required screen but has no concrete MWA/RPC/issuer adapter wired behind it |
 
 ### Defect found and corrected
@@ -37,6 +41,8 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 The first production bundle attempt failed because Metro did not resolve explicit NodeNext relative `.js` specifiers to their TypeScript sources. The shared build correctly requires the `.js` specifiers, so removing them would break the root NodeNext compilation. A payer-specific Metro resolver now performs only that narrow source mapping and preserves default behavior for packages and real JavaScript files. After the correction, `corepack pnpm check` passed 116 TypeScript tests, six unchanged golden vectors, the Rust cross-language vector test and all 16 program host tests.
 
 This is a mobile build integration correction. It does not alter canonical bytes, signatures, keys, session rules, reconciliation, settlement or economics.
+
+The first physical run also exposed four harness-only defects: PowerShell array matching could reject valid multiline `aapt` output; Samsung multi-user package queries required an explicit Android user; PowerShell consumed Android's `-p` argument; and a screenshot could be accepted after another app took focus. The harness now joins `aapt` output before matching, resolves and scopes all lifecycle operations to the active Android user, launches the resolved activity with `am start`, clears the log window, and refuses capture unless `protocol.ogp.payer` is the top resumed activity. One superseded capture showed another finance app and was explicitly rejected; it is not acceptance evidence.
 
 ### Windows build limitation
 
@@ -56,13 +62,14 @@ The static result was safe for the observed stores but unnecessarily depended on
 
 The first APK also inherited `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and `WRITE_EXTERNAL_STORAGE` from the Expo base template. None is required for the payer's QR camera flow, protected local state or network recovery. H0 blocks all three in the final merged manifest and makes their absence a CI assertion. Camera, Internet, network-state and SecureStore biometric permissions remain because they correspond to explicit payer functions.
 
-### Physical matrix — pending execution
+### Physical matrix — execution in progress
 
 | Scenario | Device A | Device B | Required result |
 |---|---|---|---|
-| Clean production install, offline boot | PENDING | PENDING | Recovery required; zero offline authority recreated |
-| Clear data | PENDING | PENDING | Recovery required; no balance/session recreated |
-| Uninstall/reinstall | PENDING | PENDING | Recovery required; no balance/session recreated |
+| Clean production install | PASS — fail-closed; network not controlled | PENDING | Recovery required; zero offline authority recreated |
+| Offline boot without a valid local session | PASS | PENDING | Recovery required; zero offline authority recreated |
+| Clear data | PASS | PENDING | Recovery required; no balance/session recreated |
+| Uninstall/reinstall | PASS | PENDING | Recovery required; no balance/session recreated |
 | Lose SecureStore key only | PENDING | PENDING | Partial public record rejected |
 | Restore AsyncStorage only | PENDING | PENDING | Partial public record rejected |
 | Copy public state A -> B | PENDING | PENDING | Device B cannot spend without matching protected key |
@@ -71,8 +78,9 @@ The first APK also inherited `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE` and 
 
 ### H0 blockers
 
-1. Connect and authorize both Android devices over USB debugging so they appear in `adb devices -l`.
-2. Complete the already-documented Sprint 8 MWA/RPC/certificate-issuer adapter before the active-session online-recovery row can be physically tested. A blocked informational screen is not recovery proof.
+1. Repeat the lifecycle rows on Device B and use two devices for the public-state copy scenario.
+2. Add controlled fault-injection support for SecureStore-only loss and AsyncStorage-only restoration without weakening production storage controls.
+3. Complete the already-documented Sprint 8 MWA/RPC/certificate-issuer adapter before the active-session online-recovery row can be physically tested. A blocked informational screen is not recovery proof.
 
 ### Reproducible physical commands
 
@@ -91,11 +99,11 @@ The currently verified APK path is git-ignored and local-only:
 artifacts/security-hardening/h0/ci-run-32090462706/extracted/app-release.apk
 ```
 
-Evidence is written under the git-ignored `artifacts/security-hardening/h0/devices/<serial>/<UTC timestamp>/` directory. Network-off and recovery actions remain operator-observed steps: the harness does not silently change airplane mode, Wi-Fi, mobile data or wallet state.
+Evidence is written under the git-ignored `artifacts/security-hardening/h0/devices/<serial>/<UTC timestamp>/` directory. The Device A offline proof used a one-shot operator-controlled wrapper that recorded the before/during/after network state and restored it in `finally`; the committed lifecycle harness itself does not silently change airplane mode, Wi-Fi, mobile data or wallet state.
 
 ### H0 decision
 
-**NO-GO.** The source logic and production bundle support the fail-closed model, but the required physical lifecycle evidence does not yet exist. Per the approved sequence, H1-H7 remain gated.
+**NO-GO / PARTIAL PHYSICAL PASS.** Device A proves fail-closed behavior for a clean install, offline boot, clear data and user-scoped uninstall/reinstall. Protected/public-store asymmetry, cross-device copying, a second physical device and live active-session recovery remain incomplete. Per the approved sequence, H1-H7 remain gated.
 
 ## H1-H7
 

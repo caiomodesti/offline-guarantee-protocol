@@ -30,6 +30,10 @@ $DeviceType = (& $Adb -s $Serial shell getprop ro.build.characteristics).Trim()
 if ($DeviceType -match "emulator") {
     throw "H0 exige aparelho fisico; '$Serial' foi identificado como emulator."
 }
+$AndroidUserId = (& $Adb -s $Serial shell am get-current-user).Trim()
+if ($LASTEXITCODE -ne 0 -or $AndroidUserId -notmatch "^\d+$") {
+    throw "Nao foi possivel determinar o usuario Android ativo no aparelho $Serial."
+}
 
 $SafeSerial = $Serial -replace "[^A-Za-z0-9._-]", "_"
 $Stamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
@@ -37,10 +41,10 @@ $EvidenceDir = Join-Path $EvidenceRoot (Join-Path $SafeSerial $Stamp)
 New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
 
 function Invoke-Adb {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
-    & $Adb -s $Serial @Arguments
+    param([Parameter(Mandatory = $true)][string[]]$AdbArguments)
+    & $Adb -s $Serial @AdbArguments
     if ($LASTEXITCODE -ne 0) {
-        throw "ADB falhou ($LASTEXITCODE): adb -s $Serial $($Arguments -join ' ')"
+        throw "ADB falhou ($LASTEXITCODE): adb -s $Serial $($AdbArguments -join ' ')"
     }
 }
 
@@ -68,14 +72,15 @@ function Require-Apk {
     }
 
     $Badging = & $Aapt dump badging $script:ResolvedApk
-    if ($LASTEXITCODE -ne 0 -or $Badging -notmatch "package: name='$([regex]::Escape($PackageName))'") {
+    $BadgingText = $Badging -join "`n"
+    if ($LASTEXITCODE -ne 0 -or $BadgingText -notmatch "package: name='$([regex]::Escape($PackageName))'") {
         throw "O APK nao pertence ao package esperado $PackageName"
     }
-    if ($Badging -notmatch "native-code: 'arm64-v8a'") {
+    if ($BadgingText -notmatch "native-code: 'arm64-v8a'") {
         throw "O APK H0 deve conter somente a arquitetura arm64-v8a"
     }
 
-    $DeviceAbis = (Invoke-Adb shell getprop ro.product.cpu.abilist).Trim()
+    $DeviceAbis = (Invoke-Adb -AdbArguments @("shell", "getprop", "ro.product.cpu.abilist")).Trim()
     if ($DeviceAbis -notmatch "(^|,)arm64-v8a(,|$)") {
         throw "O aparelho $Serial nao suporta o APK arm64-v8a: $DeviceAbis"
     }
@@ -95,33 +100,50 @@ function Write-Inventory {
     $Properties = [ordered]@{
         captured_at_utc = (Get-Date).ToUniversalTime().ToString("o")
         serial = $Serial
-        manufacturer = (Invoke-Adb shell getprop ro.product.manufacturer).Trim()
-        model = (Invoke-Adb shell getprop ro.product.model).Trim()
-        android_release = (Invoke-Adb shell getprop ro.build.version.release).Trim()
-        sdk = (Invoke-Adb shell getprop ro.build.version.sdk).Trim()
+        manufacturer = (Invoke-Adb -AdbArguments @("shell", "getprop", "ro.product.manufacturer")).Trim()
+        model = (Invoke-Adb -AdbArguments @("shell", "getprop", "ro.product.model")).Trim()
+        android_release = (Invoke-Adb -AdbArguments @("shell", "getprop", "ro.build.version.release")).Trim()
+        sdk = (Invoke-Adb -AdbArguments @("shell", "getprop", "ro.build.version.sdk")).Trim()
         characteristics = $DeviceType
+        android_user_id = $AndroidUserId
         package = $PackageName
-        package_installed = [bool]((Invoke-Adb shell pm list packages $PackageName) -match "package:$([regex]::Escape($PackageName))")
+        package_installed = [bool]((Invoke-Adb -AdbArguments @("shell", "pm", "list", "packages", "--user", $AndroidUserId, $PackageName)) -match "package:$([regex]::Escape($PackageName))")
     }
     $Properties | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $EvidenceDir "inventory.json") -Encoding utf8
     return $Properties
 }
 
 function Start-Payer {
-    Invoke-Adb shell monkey -p $PackageName -c android.intent.category.LAUNCHER 1 | Out-Null
+    Invoke-Adb -AdbArguments @("logcat", "-c") | Out-Null
+    $ResolvedActivity = (Invoke-Adb -AdbArguments @("shell", "cmd", "package", "resolve-activity", "--brief", "--user", $AndroidUserId, $PackageName) |
+        Select-Object -Last 1).Trim()
+    if ($ResolvedActivity -notmatch "^$([regex]::Escape($PackageName))/.+") {
+        throw "Nao foi possivel resolver a activity launcher de $PackageName para o usuario Android $AndroidUserId."
+    }
+    Invoke-Adb -AdbArguments @("shell", "am", "start", "--user", $AndroidUserId, "-W", "-n", $ResolvedActivity) | Out-Null
     Start-Sleep -Seconds 2
 }
 
+function Assert-PayerForeground {
+    $TopResumed = (Invoke-Adb -AdbArguments @("shell", "dumpsys", "activity", "activities") |
+        Where-Object { $_ -match "topResumedActivity=" } |
+        Select-Object -First 1)
+    if (-not $TopResumed -or $TopResumed -notmatch "\b$([regex]::Escape($PackageName))/.+") {
+        throw "O payer nao esta em primeiro plano; captura H0 recusada. Atividade observada: $TopResumed"
+    }
+}
+
 function Capture-Evidence {
-    Invoke-Adb logcat -d -v threadtime | Set-Content -LiteralPath (Join-Path $EvidenceDir "logcat.txt") -Encoding utf8
+    Assert-PayerForeground
+    Invoke-Adb -AdbArguments @("logcat", "-d", "-v", "threadtime") | Set-Content -LiteralPath (Join-Path $EvidenceDir "logcat.txt") -Encoding utf8
     $ScreenshotPath = Join-Path $EvidenceDir "screen.png"
     $RemoteScreenshot = "/data/local/tmp/ogp-h0-screen-$SafeSerial.png"
-    Invoke-Adb shell screencap -p $RemoteScreenshot
+    Invoke-Adb -AdbArguments @("shell", "screencap", "-p", $RemoteScreenshot)
     try {
-        Invoke-Adb pull $RemoteScreenshot $ScreenshotPath | Out-Null
+        Invoke-Adb -AdbArguments @("pull", $RemoteScreenshot, $ScreenshotPath) | Out-Null
     }
     finally {
-        Invoke-Adb shell rm -f $RemoteScreenshot | Out-Null
+        Invoke-Adb -AdbArguments @("shell", "rm", "-f", $RemoteScreenshot) | Out-Null
     }
 }
 
@@ -133,19 +155,19 @@ switch ($Action) {
     }
     "Install" {
         Require-Apk
-        Invoke-Adb install -r $ResolvedApk
+        Invoke-Adb -AdbArguments @("install", "--user", $AndroidUserId, "-r", $ResolvedApk)
         Start-Payer
         Capture-Evidence
     }
     "ClearData" {
-        Invoke-Adb shell pm clear $PackageName
+        Invoke-Adb -AdbArguments @("shell", "pm", "clear", "--user", $AndroidUserId, $PackageName)
         Start-Payer
         Capture-Evidence
     }
     "UninstallReinstall" {
         Require-Apk
-        Invoke-Adb uninstall $PackageName
-        Invoke-Adb install $ResolvedApk
+        Invoke-Adb -AdbArguments @("uninstall", "--user", $AndroidUserId, $PackageName)
+        Invoke-Adb -AdbArguments @("install", "--user", $AndroidUserId, "-r", $ResolvedApk)
         Start-Payer
         Capture-Evidence
     }
