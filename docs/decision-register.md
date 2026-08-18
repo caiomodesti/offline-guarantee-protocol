@@ -64,8 +64,8 @@ Every architectural question is classified. “Open risk” means the MVP behavi
 | Trivial self-merchant | DECIDED FOR MVP | Reject when `payer_wallet == merchant_wallet` |
 | Merchant collusion/multi-wallet self-merchant | OPEN RISK | Address inequality is only a minimal mitigation; abuse economics unresolved |
 | Claim spam and resolution scale | OPEN RISK | May harm liveness/economics; must be benchmarked |
-| Device software-key compromise | OPEN RISK | Scoped by session/time/cap; hardware backing deferred |
-| Hardware-backed device identity | DEFERRED | Portable Ed25519 in MVP; later platform-specific key plus attestation layer |
+| Device software-key compromise | OPEN RISK | H2 source audit confirms the Ed25519 seed is returned to JavaScript; SecureStore protects it at rest but does not make the OGP signer non-exportable. Session/time/cap and deterministic settlement bound liability |
+| Hardware-backed device identity | DEFERRED | ADR-0021 retains portable Ed25519 for MVP. Keystore/StrongBox capability is measured without a production change; any non-exportable signer or attestation protocol requires a new ADR and approval |
 | Evidence availability | OPEN RISK | Merchant must retain bytes; durable decentralized storage deferred |
 | Upgrade/admin centralization | OPEN RISK | Dev-only key acceptable for hackathon; production requires multisig/timelock plan |
 | Emergency pause | DECIDED FOR MVP | Separate authority; cannot erase claims/unlock reserves/block safe settlement |
