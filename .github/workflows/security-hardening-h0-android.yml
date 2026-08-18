@@ -18,6 +18,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: security-hardening-h0-android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   payer-production-entrypoint:
     runs-on: ubuntu-24.04
