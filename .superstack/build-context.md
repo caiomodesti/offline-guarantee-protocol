@@ -41,6 +41,7 @@ mobile:
   production_android_apk_workflow_status: pass-run-31992215121-arm64-debug-signed-h0-only
   production_android_apk_sha256: aeb108722ff7d5819e1f9ba3b8f713e4f1d486899e735bd2d3b9e4aaebe0c24f
   physical_h0_harness_status: pass-ready-no-device
+  android_backup_policy_status: pass-static-securestore-and-database-excluded-physical-pending
   production_fixture_separation_status: pass-source-graph-increment-8.7
   merchant_rpc_relayer_port_status: pass-source-increment-8.8
   merchant_durable_sync_ui_status: pass-source-increment-8.9

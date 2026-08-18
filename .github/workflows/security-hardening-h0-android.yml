@@ -78,16 +78,7 @@ jobs:
           set -euo pipefail
           apk="$(find apps/payer-mobile/android/app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
           test -n "$apk"
-          build_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
-          "$build_tools/apksigner" verify --verbose --print-certs "$apk"
-          "$build_tools/aapt" dump badging "$apk" | grep -E "^(package:|sdkVersion:|targetSdkVersion:|native-code:)"
-          unzip -l "$apk" | grep -E 'assets/(index\.android\.bundle|_expo/static/js/android/.+\.(js|hbc))'
-          unzip -l "$apk" | grep -q 'lib/arm64-v8a/'
-          if unzip -l "$apk" | grep -Eq 'lib/(armeabi-v7a|x86|x86_64)/'; then
-            echo 'Unexpected non-arm64 native library in H0 APK' >&2
-            exit 1
-          fi
-          sha256sum "$apk" | tee "${apk}.sha256"
+          bash scripts/verify-h0-android-artifact.sh "$apk"
 
       - name: Upload H0 payer APK
         uses: actions/upload-artifact@v4

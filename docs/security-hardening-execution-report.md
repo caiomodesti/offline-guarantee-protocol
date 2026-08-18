@@ -25,6 +25,8 @@ H0 is not complete. H1-H7 have not started because the authorization explicitly 
 | Reproducible Linux APK build | PASS | Private GitHub Actions run `31992215121` completed successfully in 17m55s; 23 test files / 116 tests passed and the production-entrypoint arm64 artifact was uploaded |
 | Artifact integrity | PASS | Artifact ZIP: 26,119,300 bytes, SHA-256 `6552000D0F5837A8661279ED2483E33DF3914A9D4BCD0716068A170893C5D7D2`, exactly matching GitHub's artifact digest |
 | APK validation | PASS — H0 TEST BUILD | APK: 50,328,656 bytes, SHA-256 `AEB108722FF7D5819E1F9BA3B8F713E4F1D486899E735BD2D3B9E4AAEBE0C24F`; package `protocol.ogp.payer`; min SDK 24; target SDK 36; `arm64-v8a` only; `assets/index.android.bundle` present; APK Signature Scheme v2 verified |
+| Android backup policy | PASS — STATIC | `allowBackup=true`, but both legacy backup and Android 12+ extraction rules allow only shared preferences and explicitly exclude `SecureStore`; no database/file/root domain is included. Physical restore behavior remains pending H0 evidence |
+| Android debug policy | PASS — STATIC | `android:debuggable` is absent from the release manifest and therefore defaults to false |
 | Physical evidence harness | PASS — READY | `scripts/h0-android-lifecycle.ps1` requires an explicit authorized physical-device serial, rejects emulators, scopes destructive actions to `protocol.ogp.payer`, and captures device inventory, logcat and screenshot evidence |
 | Clear-data/reinstall matrix | PENDING | Requires the payer APK plus two ADB-authorized devices |
 | Online recovery with active session | **NO-GO — INTEGRATION GAP** | Production UI currently shows a truthful recovery-required screen but has no concrete MWA/RPC/issuer adapter wired behind it |
@@ -46,6 +48,8 @@ GitHub Actions run `31992215121`, commit `8a3091c34c9617b74bdd001cb84218f602a6b3
 The APK is signed by the automatically generated Android debug certificate (`SHA-256 FAC61745DC0903786FB9EDE62A962B399F7348F0BB6F899B8332667591033B9C`) even though Gradle used the release build variant. This is acceptable only for the H0 physical lifecycle test. It is explicitly **not** a production/distribution signing decision.
 
 The run emitted one non-blocking CI maintenance warning: current `actions/checkout@v4`, `actions/setup-node@v4` and `actions/upload-artifact@v4` target the deprecated Node.js 20 action runtime and were forced to Node.js 24 by the runner. The build and all verification steps passed; action-major upgrades remain a separate reviewed maintenance change.
+
+The compiled manifest was also inspected directly. `allowBackup=true`, while `secure_store_backup_rules` and `secure_store_data_extraction_rules` include only the `sharedpref` domain and exclude the `SecureStore` preference file for both cloud backup and device transfer. No database, file or root domain is included, so Android's automatic restore cannot restore the AsyncStorage database or the protected SecureStore material. This supports fail-closed reinstall behavior but does not replace the required physical tests or the explicit adversarial "restore AsyncStorage only" injection. Future H0 builds now assert these rules and non-debuggability in CI.
 
 ### Physical matrix — pending execution
 
