@@ -51,9 +51,9 @@ H2 adds a standalone package, `protocol.ogp.h2probe`, which is not linked from e
 
 For generated private/secret keys it records support, actual `KeyInfo` security level, round-trip/signature success and whether `getEncoded()` is null. For P-256 it records only attestation-chain length and presence of the Android attestation extension. It does not emit raw private keys, public keys, certificates, attestation records, device serials or Android IDs. The host collector accepts only one base64-framed JSON result bound to the requested device label, rejects fatal or incomplete output and hashes the stored evidence.
 
-The probe APK is non-debuggable, disables backup and declares no permissions, including no Internet permission. Build `20260818T050139Z` is 16,787 bytes with SHA-256 `5BBD119569083B2A91C7AFE0CD276605A1311D2FD0D77F35F2F8A1D6C2408A8E`; APK Signature Schemes v1, v2 and v3 verify. The signing key is ephemeral and makes this a research artifact, not a distributable application.
+The probe APK is non-debuggable, disables backup and declares no permissions, including no Internet permission. Device A build `20260821T013305Z` is 16,787 bytes with SHA-256 `C8F31F332E044EC910DF41E25A6EF174888B19F4059265EA08911B70FBE3AAA7`; APK Signature Schemes v1, v2 and v3 verify. The signing key is ephemeral and makes this a research artifact, not a distributable application.
 
-Physical results are intentionally not inferred from source or H0 logs. Both previously tested phones are presently disconnected, so the Device A/Device B capability rows remain pending.
+Physical results are intentionally not inferred from source or H0 logs. Device A (Samsung SM-G781B, Android 13 / API 33) has now produced a complete label-bound result with SHA-256 `6F33027D9C204EF117161BD9ABD85BC290395F545EAF99D68126D0CF6CD0B58A`. Its equivalent default AES-256-GCM key was non-exportable in the trusted environment; a requested StrongBox AES key was non-exportable and reported `STRONGBOX`. Default and StrongBox P-256 both signed and verified, returned four-certificate chains and exposed the Android attestation extension. AndroidKeyStore rejected Ed25519 in both attempts with `NoSuchAlgorithmException`. This measures platform capability, not the private properties of an already-created SecureStore alias. Device B remains pending.
 
 ## Attestation boundary
 

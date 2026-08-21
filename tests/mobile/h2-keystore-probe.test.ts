@@ -7,6 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const manifest = readFileSync(resolve(root, "spikes", "android-keystore-probe", "AndroidManifest.xml"), "utf8");
 const source = readFileSync(resolve(root, "spikes", "android-keystore-probe", "src", "protocol", "ogp", "h2probe", "ProbeActivity.java"), "utf8");
 const harness = readFileSync(resolve(root, "scripts", "h2-android-keystore-probe.ps1"), "utf8");
+const deviceAEvidence = JSON.parse(readFileSync(resolve(root, "docs", "evidence", "h2", "device-a-keystore-capabilities.json"), "utf8"));
 
 describe("isolated H2 Android Keystore capability probe", () => {
   it("has no network, identifier or backup authority", () => {
@@ -37,11 +38,29 @@ describe("isolated H2 Android Keystore capability probe", () => {
     expect(harness).toContain('android:debuggable');
     expect(harness).toContain('"$signed.sha256"');
     expect(harness).toContain("if ([string]::IsNullOrWhiteSpace($Serial))");
+    expect(harness).toContain("'--no-incremental'");
     expect(harness).toContain("FromBase64String");
     expect(harness).toContain("ConvertFrom-Json");
     expect(harness).toContain("@($result.measurements).Count -ne 6");
     expect(harness).toContain("$result.device_label -ne $DeviceLabel");
     expect(harness).toContain("$result.fatal -eq $true");
     expect(harness).toContain('keystore-capabilities.json');
+  });
+
+  it("preserves the normalized Device A result without a unique device identifier", () => {
+    expect(deviceAEvidence).toMatchObject({
+      schema: "ogp-h2-keystore-capability-v1",
+      device_label: "device-a",
+      sdk: 33,
+      strongbox_feature: true,
+      network_permission: false,
+      attestation_verification: "not-performed-on-device",
+      protocol_effect: "none",
+    });
+    expect(deviceAEvidence.measurements).toHaveLength(6);
+    expect(deviceAEvidence.measurements[1]).toMatchObject({ operation: "aes-256-gcm", strongbox_requested: true, supported: true, security_level: "STRONGBOX" });
+    expect(deviceAEvidence.measurements[3]).toMatchObject({ operation: "p256-sha256-ecdsa-attested", strongbox_requested: true, supported: true, sign_verify: true, attestation_extension_present: true });
+    expect(deviceAEvidence.measurements[4]).toMatchObject({ operation: "ed25519-android-keystore-experimental", supported: false, failure_class: "NoSuchAlgorithmException" });
+    expect(JSON.stringify(deviceAEvidence)).not.toMatch(/RQCT|serial|ANDROID_ID|imei/i);
   });
 });

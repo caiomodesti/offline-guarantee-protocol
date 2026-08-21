@@ -47,8 +47,9 @@ mobile:
   h0_gate_status: pass-physical-storage-lifecycle-mwa-public-cluster-proof-deferred-sprint-12
   h1_crash_consistency_status: pass-27-files-141-tests-protected-generation-journal
   h1_android_hermes_bundle_status: pass-payer-and-merchant-production-entrypoints
-  h2_device_key_spike_status: in-progress-source-audit-and-isolated-apk-pass-two-device-measurement-pending
-  h2_probe_apk_sha256: 5bbd119569083b2a91c7afe0cd276605a1311d2fd0d77f35f2f8a1d6c2408a8e
+  h2_device_key_spike_status: in-progress-device-a-pass-device-b-pending
+  h2_probe_apk_sha256: c8f31f332e044ec910df41e25a6ef174888b19f4059265ea08911b70fbe3aaa7
+  h2_device_a_evidence_sha256: 6f33027d9c204ef117161bd9abd85bc290395f545eaf99d68126d0cf6cd0b58a
   production_device_signer: software-ed25519-seed-securestore-wrapped-unchanged
   android_backup_policy_status: pass-ci-local-static-and-two-device-clear-reinstall
   android_permission_policy_status: pass-ci-local-static-minimal-allowlist

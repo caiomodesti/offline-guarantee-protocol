@@ -121,7 +121,7 @@ function Latest-Apk {
 function Install-Probe([string]$Apk) {
   Require-PhysicalDevice
   Verify-ProbeApk $Apk
-  Invoke-Checked $adb @('-s', $Serial, 'install', '-r', $Apk) 'instalação do probe H2'
+  Invoke-Checked $adb @('-s', $Serial, 'install', '--no-incremental', '-r', $Apk) 'instalação do probe H2'
 }
 
 function Run-Probe {
