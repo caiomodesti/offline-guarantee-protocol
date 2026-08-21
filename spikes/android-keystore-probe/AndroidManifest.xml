@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  package="protocol.ogp.h2probe"
+  android:versionCode="1"
+  android:versionName="0.1.0-h2">
+  <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="36" />
+  <application
+    android:allowBackup="false"
+    android:debuggable="false"
+    android:label="OGP H2 Keystore Probe"
+    android:theme="@android:style/Theme.Material.Light.NoActionBar">
+    <activity
+      android:name=".ProbeActivity"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>

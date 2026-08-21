@@ -2,8 +2,8 @@
 
 - Started: 2026-08-17
 - Approved order: H0 -> H7
-- Current gate: H2
-- Overall status: **H0 PASS / H1 PASS / H2 NEXT**
+- Current gate: H3 economic property tests
+- Overall status: **H0 PASS / H1 PASS / H2 PASS / H3 NEXT**
 - Protocol/economic changes: none
 
 ## H0 — physical lifecycle matrix
@@ -209,9 +209,79 @@ The H1-focused suite contains 17 tests. The complete repository check passed:
 
 **PASS / H2 AUTHORIZED.** Crash consistency and public/protected generation binding are proven at every modeled write boundary. Overall device security remains **NO-GO** until H2 feasibility evidence and later hardening gates are complete.
 
-## H2-H7
+## H2 — device-key feasibility spike
 
-H2 device-key feasibility is next. H3-H7 have not started.
+### Current gate result
+
+**PASS — source audit, isolated measurement harness and two-device physical capability matrix complete.** ADR-0021 fixes the research boundary and selects no new production signer. H3 is authorized.
+
+### Current SecureStore evidence
+
+Both mobile applications lock `expo-secure-store@57.0.1`. The inspected Android AES implementation has SHA-256 `D3A86DE25C64935E84B6999101556B0E9F8BC6C90CE7600C421125B3E18AA3F4`; the installed package manifest has SHA-256 `B0E229328F8389175825CD43DFDFE2AAE482D9DCE6DBCA6BEE480FDCDB7B81EC`.
+
+Source inspection proves that SecureStore creates an AES-256-GCM wrapper in `AndroidKeyStore`, optionally gated by `requireAuthentication`. OGP does not set that option. This dependency version neither requests StrongBox nor records `KeyInfo` security level or an attestation challenge. Android ignores the iOS-oriented `WHEN_UNLOCKED_THIS_DEVICE_ONLY` accessibility value because Android's native options expose only the authentication prompt, keychain service and authentication requirement.
+
+The OGP Ed25519 seed is decrypted and returned to JavaScript for signing. It is therefore a software protocol signer protected at rest, not a non-exportable hardware-backed OGP signer. The actual hardware level of the AES wrapper is still a physical measurement, not a source-code fact.
+
+### Isolated capability probe
+
+The standalone `protocol.ogp.h2probe` APK measures default Android Keystore and requested-StrongBox AES-256-GCM, attested P-256 signing and experimental Ed25519 provider support. It records actual `KeyInfo` security level and functional results, then deletes every ephemeral alias. It never signs OGP bytes and is unreachable from the payer and merchant entrypoints.
+
+Static and APK verification results:
+
+| Property | Result |
+|---|---|
+| Device A / Device B build timestamps | `20260821T013305Z` / `20260821T014422Z` |
+| APK size | 16,787 bytes |
+| Device A / Device B APK SHA-256 | `C8F31F332E044EC910DF41E25A6EF174888B19F4059265EA08911B70FBE3AAA7` / `5100D51A2FA4B5CDEDE99E767F54A71ED6C5AFBE3D7AEC2E4DC723ADB939EB76` |
+| Package/version | `protocol.ogp.h2probe` / `1` / `0.1.0-h2` |
+| SDK | min 23 / target 36 |
+| Permissions | none; no Internet permission |
+| Backup/debug | `allowBackup=false`; `debuggable=false` |
+| APK signature verification | v1, v2 and v3 PASS; ephemeral probe-only certificate |
+| Pre-install controls | Exact package, signature, no permissions, backup/debug policy and build SHA-256 sidecar are reverified; explicit physical serial required; emulator rejected |
+| Data emitted | Device label/model/OS, capability booleans, security levels and functional outcomes; no serial, Android ID, raw key, certificate or attestation record. Host accepts only complete label-bound JSON and writes a SHA-256 sidecar |
+| Protocol effect | none |
+
+The Java 8 compilation emits a non-blocking bootstrap-classpath warning under JDK 17 and a deprecation notice because pre-API-31 devices require the legacy `KeyInfo.isInsideSecureHardware()` compatibility path. D8, packaging, alignment and signature verification pass.
+
+The complete host/conformance suite passes after the H2 harness addition: root and both mobile TypeScript checks, 29 test files / 148 tests, six unchanged golden vectors, one Rust cross-language vector test and 16 program host tests. The added regression tests pin the audited SecureStore version/source assumptions, current no-authentication production setting, probe isolation, both normalized physical results and pre-install artifact controls.
+
+### Physical capability matrix
+
+Both devices were measured on 2026-08-21 UTC. Device A raw validated JSON has SHA-256 `6F33027D9C204EF117161BD9ABD85BC290395F545EAF99D68126D0CF6CD0B58A`; Device B raw validated JSON has SHA-256 `5B1A4F6102D6ED9F99745E0697ADACD92D6432823BB5FDEFC033F1A9DB8A46A0`. Normalized, non-identifying semantic copies are committed under `docs/evidence/h2/` and guarded by regression tests.
+
+| Measurement | Device A | Device B |
+|---|---|---|
+| StrongBox feature advertised | PASS — true | PASS — false; optional capability correctly absent |
+| AES default actual security level and round-trip | PASS — TEE, non-exportable, round-trip true | PASS — TEE, non-exportable, round-trip true |
+| AES requested StrongBox actual result | PASS — StrongBox, non-exportable, round-trip true | UNSUPPORTED — feature absent |
+| P-256 default sign/verify and attestation-extension presence | PASS — TEE, non-exportable, sign/verify true, chain 4, extension present | PASS — TEE, non-exportable, sign/verify true, chain 4, extension present |
+| P-256 requested StrongBox actual result | PASS — StrongBox, non-exportable, sign/verify true, chain 4, extension present | UNSUPPORTED — feature absent |
+| Ed25519 AndroidKeyStore default actual result | UNSUPPORTED — `NoSuchAlgorithmException` | UNSUPPORTED — `NoSuchAlgorithmException` |
+| Ed25519 requested StrongBox actual result | UNSUPPORTED — `NoSuchAlgorithmException` | UNSUPPORTED — feature absent |
+
+The first Device A install attempted ADB incremental delivery, which that Samsung package manager explicitly disallowed; ADB safely retried as a streamed install and succeeded. The harness now passes `--no-incremental` explicitly so subsequent evidence runs avoid this environment-dependent fallback. This was a harness-only finding and did not affect the measurement or OGP state. The probe package was uninstalled after capture.
+
+Device A confirms that hardware-backed P-256/StrongBox is technically feasible on at least one target device. Device B proves that StrongBox cannot be mandatory for the present device population. Both prove that AndroidKeyStore Ed25519 cannot be assumed. This does not justify a signer migration: current SecureStore wrapper aliases were not directly introspected, attestation was not verified off-device, and a P-256 migration would still change protocol schemas and verification paths.
+
+Attestation-extension presence is only a capability signal. A production trust decision would require off-device validation of the chain, Google root, challenge, security level and revocation state. No such trust system is introduced in H2.
+
+### H2 decision boundary
+
+- v0.1 keeps its existing Ed25519 signer and canonical objects unchanged;
+- current SecureStore protection is described accurately as encryption at rest with a Keystore wrapper;
+- `requireAuthentication`, an explicitly measured wrapper and non-exportable P-256/attestation are separate future options, not silent upgrades;
+- any signer algorithm, signed-schema or attestation-protocol change requires a new ADR and explicit approval;
+- H2 passes with the two-device matrix captured; H3 may start after this reviewed branch is integrated.
+
+### H2 decision
+
+**PASS / H3 AUTHORIZED.** Current Ed25519 remains unchanged for MVP. TEE-based wrapping is feasible on both tested devices, StrongBox is optional and fragmented, and non-exportable protocol signing/attestation remain deferred behind a new ADR and explicit approval. Overall device security remains **NO-GO** until H3-H7 complete.
+
+## H3-H7
+
+H3 is next. H4-H7 have not started. The approved order remains preserved.
 
 ## Protocol preservation audit
 
