@@ -1,0 +1,79 @@
+1
+00:00:00,600 --> 00:00:04,833
+Quando a internet cai, um pagamento comum simplesmente para.
+
+2
+00:00:05,000 --> 00:00:07,933
+Mas a necessidade de pagar continua.
+
+3
+00:00:09,500 --> 00:00:14,833
+Sem consultar a rede, o lojista não sabe se o mesmo saldo foi reutilizado.
+
+4
+00:00:15,167 --> 00:00:20,667
+O Offline Guarantee Protocol começa exatamente nesse limite, sem escondê-lo.
+
+5
+00:00:22,500 --> 00:00:28,167
+Antes de ficar offline, o pagador bloqueia colateral e abre uma sessão temporária.
+
+6
+00:00:28,500 --> 00:00:33,833
+O limite de um branch e a cobertura total são definidos de forma separada.
+
+7
+00:00:34,167 --> 00:00:39,733
+No exemplo, mil unidades de gasto possuem três mil unidades de cobertura.
+
+8
+00:00:41,500 --> 00:00:47,833
+Sem Wi-Fi e sem dados móveis, o lojista cria um pedido com valor e desafio únicos.
+
+9
+00:00:48,167 --> 00:00:54,833
+O pagador verifica o pedido, autoriza e produz uma credencial assinada ligada ao estado anterior.
+
+10
+00:00:55,167 --> 00:01:01,333
+O lojista recebe a prova por QR Code e valida tudo localmente.
+
+11
+00:01:01,667 --> 00:01:07,333
+A prova é armazenada antes da confirmação visual. A liquidação ainda está pendente.
+
+12
+00:01:09,167 --> 00:01:14,667
+Quando o lojista reconecta, ele envia o claim dentro da janela permitida.
+
+13
+00:01:15,000 --> 00:01:20,833
+A rede verifica a evidência; a ordem de chegada não escolhe quem recebe.
+
+14
+00:01:22,167 --> 00:01:28,000
+Se o dispositivo criou branches conflitantes, o fork se torna detectável.
+
+15
+00:01:28,333 --> 00:01:34,167
+A reconciliação calcula o resultado deterministicamente e nunca paga acima do colateral reservado.
+
+16
+00:01:34,500 --> 00:01:40,167
+Com conflito confirmado, o acesso offline é revogado na mesma transição atômica.
+
+17
+00:01:41,667 --> 00:01:46,833
+O núcleo passou por SBF, runtime Solana, CPI real e testes em dois aparelhos.
+
+18
+00:01:47,167 --> 00:01:52,400
+O hardening H4 executou doze mil duzentos e quarenta casos reproduzíveis.
+
+19
+00:01:52,000 --> 00:01:57,267
+O OGP é experimental. A Sprint oito continua em desenvolvimento.
+
+20
+00:01:57,333 --> 00:01:59,733
+Código e evidências estão no GitHub.

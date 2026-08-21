@@ -1,0 +1,22 @@
+{
+  "name": "@ogp/overview-video",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.16.0",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "assets": "node scripts/generate-assets.mjs",
+    "render": "remotion render src/index.ts OGPOverview out/ogp-overview-pt-br.mp4 --codec h264 --crf 18 --audio-codec aac",
+    "thumbnail": "remotion still src/index.ts OGPThumbnail out/ogp-thumbnail.png --frame 1",
+    "verify": "node scripts/verify-output.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.404",
+    "@remotion/renderer": "4.0.404",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.404",
+    "typescript": "5.7.3"
+  }
+}
