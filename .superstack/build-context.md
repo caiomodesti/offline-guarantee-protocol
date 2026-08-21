@@ -9,7 +9,7 @@ defi:
   emergency_pause: true
 project:
   name: Offline Guarantee Protocol
-  phase: security-hardening-h2-device-key-feasibility
+  phase: security-hardening-h4-fuzzing
   settlement_asset: mock-spl-token
   money_representation: u64-minor-units
 offline_ledger:
@@ -52,6 +52,10 @@ mobile:
   h2_probe_apk_sha256_device_b: 5100d51a2fa4b5cdede99e767f54a71ed6c5afbe3d7aec2e4dc723adb939eb76
   h2_device_a_evidence_sha256: 6f33027d9c204ef117161bd9abd85bc290395f545eaf99d68126d0cf6cd0b58a
   h2_device_b_evidence_sha256: 5b1a4f6102d6ed9f99745e0697adacd92d6432823bb5fdefc033f1a9db8a46a0
+  h3_economic_properties_status: pass-30-files-152-tests-plus-4096-rust-allocation-scenarios
+  h3_authenticated_dag_seed: 0x0a6f3301
+  h3_dust_order_seed: 0x0a6f3302
+  h3_rust_allocation_seed: 0x0a6f33035eed
   production_device_signer: software-ed25519-seed-securestore-wrapped-unchanged
   android_backup_policy_status: pass-ci-local-static-and-two-device-clear-reinstall
   android_permission_policy_status: pass-ci-local-static-minimal-allowlist

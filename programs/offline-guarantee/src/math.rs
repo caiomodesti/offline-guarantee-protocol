@@ -175,4 +175,64 @@ mod tests {
         assert!(checked_base_allocation(1, 0, 1).is_err());
         assert!(checked_base_allocation(2, 1, 1).is_err());
     }
+
+    #[test]
+    fn pro_rata_liability_never_exceeds_cap_over_reproducible_grid() {
+        fn assert_allocation(amounts: &[u64], cap: u64) {
+            let exposure = amounts
+                .iter()
+                .try_fold(0u64, |total, amount| total.checked_add(*amount))
+                .expect("test material must fit u64");
+            let coverage = exposure.min(cap);
+            let bases: Vec<u64> = amounts
+                .iter()
+                .map(|amount| checked_base_allocation(*amount, exposure, cap).unwrap())
+                .collect();
+            let base_total = bases
+                .iter()
+                .try_fold(0u64, |total, base| total.checked_add(*base))
+                .unwrap();
+            let remainder = coverage.checked_sub(base_total).unwrap();
+            assert!(remainder <= amounts.len() as u64);
+            let allocations: Vec<u64> = bases
+                .iter()
+                .enumerate()
+                .map(|(index, base)| {
+                    base.checked_add(u64::from((index as u64) < remainder))
+                        .unwrap()
+                })
+                .collect();
+            assert!(allocations
+                .iter()
+                .zip(amounts)
+                .all(|(allocation, amount)| allocation <= amount));
+            assert_eq!(allocations.iter().sum::<u64>(), coverage);
+            assert!(coverage <= cap);
+        }
+
+        assert_allocation(&[u64::MAX], u64::MAX);
+        assert_allocation(&[u64::MAX - 1, 1], u64::MAX - 1);
+        assert_allocation(&[1, 1, 1], 2);
+
+        // Fixed LCG seed makes every generated regression reproducible without
+        // adding a new property-test dependency to the SBF program crate.
+        let mut state = 0x0a6f_3303_5eed_u64;
+        for _ in 0..4_096 {
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1);
+            let edge_count = usize::try_from(state % 16 + 1).unwrap();
+            let mut amounts = Vec::with_capacity(edge_count);
+            for _ in 0..edge_count {
+                state = state
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1);
+                amounts.push(state % 1_000_000 + 1);
+            }
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1);
+            assert_allocation(&amounts, state % 16_000_001);
+        }
+    }
 }
