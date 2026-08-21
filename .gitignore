@@ -10,3 +10,6 @@ test-ledger/
 *.tsbuildinfo
 .DS_Store
 .brand-preview/
+video/*/.vendor/
+video/*/.remotion/
+video/*/out/previews/

@@ -1,0 +1,22 @@
+[
+  {"id":"01","from":18,"to":145,"text":"Quando a internet cai, um pagamento comum simplesmente para."},
+  {"id":"02","from":150,"to":238,"text":"Mas a necessidade de pagar continua."},
+  {"id":"03","from":285,"to":445,"text":"Sem consultar a rede, o lojista não sabe se o mesmo saldo foi reutilizado."},
+  {"id":"04","from":455,"to":620,"text":"O Offline Guarantee Protocol começa exatamente nesse limite, sem escondê-lo."},
+  {"id":"05","from":675,"to":845,"text":"Antes de ficar offline, o pagador bloqueia colateral e abre uma sessão temporária."},
+  {"id":"06","from":855,"to":1015,"text":"O limite de um branch e a cobertura total são definidos de forma separada."},
+  {"id":"07","from":1025,"to":1192,"text":"No exemplo, mil unidades de gasto possuem três mil unidades de cobertura."},
+  {"id":"08","from":1245,"to":1435,"text":"Sem Wi-Fi e sem dados móveis, o lojista cria um pedido com valor e desafio únicos."},
+  {"id":"09","from":1445,"to":1645,"text":"O pagador verifica o pedido, autoriza e produz uma credencial assinada ligada ao estado anterior."},
+  {"id":"10","from":1655,"to":1840,"text":"O lojista recebe a prova por QR Code e valida tudo localmente."},
+  {"id":"11","from":1850,"to":2020,"text":"A prova é armazenada antes da confirmação visual. A liquidação ainda está pendente."},
+  {"id":"12","from":2075,"to":2240,"text":"Quando o lojista reconecta, ele envia o claim dentro da janela permitida."},
+  {"id":"13","from":2250,"to":2425,"text":"A rede verifica a evidência; a ordem de chegada não escolhe quem recebe."},
+  {"id":"14","from":2465,"to":2640,"text":"Se o dispositivo criou branches conflitantes, o fork se torna detectável."},
+  {"id":"15","from":2650,"to":2825,"text":"A reconciliação calcula o resultado deterministicamente e nunca paga acima do colateral reservado."},
+  {"id":"16","from":2835,"to":3005,"text":"Com conflito confirmado, o acesso offline é revogado na mesma transição atômica."},
+  {"id":"17","from":3050,"to":3205,"text":"O núcleo passou por SBF, runtime Solana, CPI real e testes em dois aparelhos."},
+  {"id":"18","from":3215,"to":3372,"text":"O hardening H4 executou doze mil duzentos e quarenta casos reproduzíveis."},
+  {"id":"19","from":3360,"to":3518,"text":"O OGP é experimental. A Sprint oito continua em desenvolvimento."},
+  {"id":"20","from":3520,"to":3592,"text":"Código e evidências estão no GitHub."}
+]
