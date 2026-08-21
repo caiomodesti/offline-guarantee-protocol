@@ -33,8 +33,36 @@ export interface ReconciliationResult {
   readonly stateGraphCommitment: Uint8Array;
 }
 
+export interface CoverageAllocation {
+  readonly credentialHash: Uint8Array;
+  readonly merchant: Uint8Array;
+  readonly amount: bigint;
+  readonly baseAllocation: bigint;
+  readonly dust: bigint;
+  readonly payout: bigint;
+}
+
+export interface DeterministicCoverageResult {
+  readonly aggregateOfflineExposure: bigint;
+  readonly collateralCoverageCap: bigint;
+  readonly coverage: bigint;
+  readonly baseAllocationTotal: bigint;
+  readonly dustUnits: bigint;
+  readonly totalPayout: bigint;
+  readonly insolvent: boolean;
+  readonly allocations: readonly CoverageAllocation[];
+}
+
 function hex(value: Uint8Array): string {
   return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function compareBytes(left: Uint8Array, right: Uint8Array): number {
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return left.length - right.length;
 }
 
 function u32(value: number): Uint8Array {
@@ -71,6 +99,84 @@ function checkedExposure(edges: readonly StateEdge[]): bigint {
     if (total > U64_MAX) throw new Error("EXPOSURE_OVERFLOW");
   }
   return total;
+}
+
+function assertU64(value: bigint, name: string): void {
+  if (value < 0n || value > U64_MAX) throw new Error(`${name}_OUT_OF_RANGE`);
+}
+
+/**
+ * Pure mirror of ADR-0017's authoritative on-chain allocation rule.
+ * Claims must already be the reconciliation result's unique eligible edges.
+ */
+export function allocateDeterministicCoverage(
+  claims: readonly ReconciledClaim[],
+  collateralCoverageCap: bigint,
+): DeterministicCoverageResult {
+  assertU64(collateralCoverageCap, "COLLATERAL_COVERAGE_CAP");
+  const ordered = [...claims].sort((left, right) => compareBytes(left.edge.credentialHash, right.edge.credentialHash));
+  const seen = new Set<string>();
+  let aggregateOfflineExposure = 0n;
+  for (const claim of ordered) {
+    assertU64(claim.edge.amount, "CLAIM_AMOUNT");
+    if (claim.edge.amount === 0n) throw new Error("CLAIM_AMOUNT_OUT_OF_RANGE");
+    const identity = hex(claim.edge.credentialHash);
+    if (seen.has(identity)) throw new Error("DUPLICATE_ALLOCATION_EDGE");
+    seen.add(identity);
+    aggregateOfflineExposure += claim.edge.amount;
+    if (aggregateOfflineExposure > U64_MAX) throw new Error("EXPOSURE_OVERFLOW");
+  }
+
+  const coverage = aggregateOfflineExposure < collateralCoverageCap
+    ? aggregateOfflineExposure
+    : collateralCoverageCap;
+  if (aggregateOfflineExposure === 0n) {
+    return {
+      aggregateOfflineExposure,
+      collateralCoverageCap,
+      coverage,
+      baseAllocationTotal: 0n,
+      dustUnits: 0n,
+      totalPayout: 0n,
+      insolvent: false,
+      allocations: [],
+    };
+  }
+
+  const bases = ordered.map((claim) => claim.edge.amount * coverage / aggregateOfflineExposure);
+  const baseAllocationTotal = bases.reduce((total, value) => total + value, 0n);
+  const dustUnits = coverage - baseAllocationTotal;
+  if (dustUnits < 0n || dustUnits > BigInt(ordered.length)) throw new Error("INVALID_DUST_REMAINDER");
+
+  const allocations = ordered.map((claim, index): CoverageAllocation => {
+    const baseAllocation = bases[index] ?? 0n;
+    const dust = BigInt(index) < dustUnits ? 1n : 0n;
+    const payout = baseAllocation + dust;
+    if (payout > claim.edge.amount) throw new Error("ALLOCATION_EXCEEDS_CLAIM");
+    return {
+      credentialHash: claim.edge.credentialHash,
+      merchant: claim.edge.merchant,
+      amount: claim.edge.amount,
+      baseAllocation,
+      dust,
+      payout,
+    };
+  });
+  const totalPayout = allocations.reduce((total, allocation) => total + allocation.payout, 0n);
+  if (totalPayout !== coverage || totalPayout > collateralCoverageCap) {
+    throw new Error("COVERAGE_INVARIANT_VIOLATION");
+  }
+
+  return {
+    aggregateOfflineExposure,
+    collateralCoverageCap,
+    coverage,
+    baseAllocationTotal,
+    dustUnits,
+    totalPayout,
+    insolvent: aggregateOfflineExposure > collateralCoverageCap,
+    allocations,
+  };
 }
 
 function conflictingChildHashes(graph: StateGraph): ReadonlySet<string> {

@@ -2,8 +2,8 @@
 
 - Started: 2026-08-17
 - Approved order: H0 -> H7
-- Current gate: H3 economic property tests
-- Overall status: **H0 PASS / H1 PASS / H2 PASS / H3 NEXT**
+- Current gate: H4 fuzzing
+- Overall status: **H0 PASS / H1 PASS / H2 PASS / H3 PASS / H4 NEXT**
 - Protocol/economic changes: none
 
 ## H0 — physical lifecycle matrix
@@ -279,9 +279,47 @@ Attestation-extension presence is only a capability signal. A production trust d
 
 **PASS / H3 AUTHORIZED.** Current Ed25519 remains unchanged for MVP. TEE-based wrapping is feasible on both tested devices, StrongBox is optional and fragmented, and non-exportable protocol signing/attestation remain deferred behind a new ADR and explicit approval. Overall device security remains **NO-GO** until H3-H7 complete.
 
-## H3-H7
+## H3 — economic property tests
 
-H3 is next. H4-H7 have not started. The approved order remains preserved.
+### Gate result
+
+**PASS.** The central economic invariant held across authenticated random DAGs, deliberate forks, multiple merchants, exact replays, invalid mutations, dust, randomized arrival orders and arithmetic boundaries:
+
+```text
+total_payout = min(aggregate_offline_exposure, collateral_coverage_cap)
+total_payout <= collateral_coverage_cap
+allocation_i <= eligible_claim_amount_i
+```
+
+No protocol economics, canonical schema, signed object, domain separator or golden vector changed. The TypeScript allocator added in H3 is a pure, testable mirror of the authoritative ADR-0017/on-chain pro-rata rule; it does not create a second source of settlement authority.
+
+### Reproducible property evidence
+
+| Property | Evidence | Result |
+|---|---|---|
+| Liability never exceeds the immutable cap | 128 generated authenticated DAG scenarios; seed `0x0a6f3301`; 1-6 fork branches, 1-4 edges per branch and 1-5 merchants | PASS |
+| Invalid evidence adds zero liability | Every generated scenario injects an amount mutation and merchant mutation without re-signing; both are rejected and the allocation digest remains identical to the valid baseline | PASS |
+| Exact replay adds zero payout | Every generated scenario injects 0-3 exact replays; duplicates are classified but the unique eligible set and allocation digest remain unchanged | PASS |
+| Arrival order cannot select the result | Every adversarial claim set is deterministically permuted; graph reconciliation and payout remain byte-for-byte equivalent after canonical ordering | PASS |
+| Dust is exact and deterministic | 2,048 generated amount/cap/order scenarios; seed `0x0a6f3302`; dust goes to the first representative hashes in unsigned lexical order and payout equals coverage exactly | PASS |
+| Aggregate exposure may exceed one branch limit | Four valid 1,000-unit fork branches produce 4,000 aggregate exposure against a 1,000 branch limit; payout remains exactly at the immutable 3,000 coverage cap | PASS |
+| Arithmetic boundaries | Empty set, zero/negative/out-of-range material, duplicate representatives, `u64::MAX`, exposure overflow and per-claim payout bounds | PASS |
+| Rust settlement arithmetic grid | 4,096 deterministic LCG scenarios; seed `0x0a6f33035eed`, plus explicit `u64::MAX` cases | PASS |
+
+The complete repository verification passed with root and both mobile strict typechecks, 30 TypeScript test files / 152 tests, six unchanged golden vectors, one Rust cross-language Borsh/SHA-256/Ed25519 conformance test and 17 program host tests. The direct fixed-dependency commands were used because `corepack pnpm check` attempted an interactive `node_modules` purge in the non-TTY shell; no dependency installation or lockfile change was needed.
+
+### Hostile review
+
+- Duplicate hashes are rejected at the allocation boundary, preventing double allocation even if a caller bypasses reconciliation.
+- Aggregate exposure uses checked `u64` semantics and fails before allocation on overflow.
+- Zero-value claims are rejected rather than entering dust allocation.
+- Randomized device timestamps and claim arrival order are absent from allocation inputs.
+- The existing bounded dust-hash-grinding risk remains open: changing a valid wrapper may influence at most minor-unit dust ordering, but cannot increase total protocol liability or change face value. This is unchanged from ADR-0003/0011/0017.
+- H3 is host/property evidence. Authoritative settlement remains the program implementation and retains its validator-backed runtime proof; the H3 mirror is not trusted by clients or merchants as settlement state.
+
+### H3 decision
+
+**PASS / H4 AUTHORIZED.** No economic defect or specification divergence was found. H4 fuzzing is next; H5-H7 have not started. The approved order remains preserved.
 
 ## Protocol preservation audit
 

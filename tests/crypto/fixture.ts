@@ -16,10 +16,16 @@ export interface ProtocolFixture {
   readonly credential: PaymentCredential;
 }
 
-export function makeFixture(amount = 400n, merchantByte = 0x71, challengeByte = 0x91): ProtocolFixture {
-  const walletSecret = generateSecretKey();
-  const deviceSecret = generateSecretKey();
-  const issuerSecret = generateSecretKey();
+export interface FixtureSecrets {
+  readonly walletSecret: Uint8Array;
+  readonly deviceSecret: Uint8Array;
+  readonly issuerSecret: Uint8Array;
+}
+
+export function makeFixture(amount = 400n, merchantByte = 0x71, challengeByte = 0x91, secrets?: FixtureSecrets): ProtocolFixture {
+  const walletSecret = secrets?.walletSecret.slice() ?? generateSecretKey();
+  const deviceSecret = secrets?.deviceSecret.slice() ?? generateSecretKey();
+  const issuerSecret = secrets?.issuerSecret.slice() ?? generateSecretKey();
   const sessionId = filled(0xc3);
   const context: ProtocolTrustContext = { networkId: NetworkId.Devnet, clusterGenesisHash: filled(0xa1), programId: filled(0xb2), sessionId, trustedCertificateIssuer: derivePublicKey(issuerSecret) };
   const issuedAt = 1_800_000_000n;
