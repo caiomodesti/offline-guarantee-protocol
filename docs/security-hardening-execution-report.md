@@ -2,8 +2,8 @@
 
 - Started: 2026-08-17
 - Approved order: H0 -> H7
-- Current gate: H2 physical capability matrix
-- Overall status: **H0 PASS / H1 PASS / H2 IN PROGRESS**
+- Current gate: H3 economic property tests
+- Overall status: **H0 PASS / H1 PASS / H2 PASS / H3 NEXT**
 - Protocol/economic changes: none
 
 ## H0 — physical lifecycle matrix
@@ -213,7 +213,7 @@ The H1-focused suite contains 17 tests. The complete repository check passed:
 
 ### Current gate result
 
-**IN PROGRESS — source audit, isolated measurement harness and Device A physical measurement PASS; Device B pending.** ADR-0021 fixes the research boundary and selects no new production signer. H3 remains gated until both physical results exist.
+**PASS — source audit, isolated measurement harness and two-device physical capability matrix complete.** ADR-0021 fixes the research boundary and selects no new production signer. H3 is authorized.
 
 ### Current SecureStore evidence
 
@@ -231,9 +231,9 @@ Static and APK verification results:
 
 | Property | Result |
 |---|---|
-| Device A build timestamp | `20260821T013305Z` |
+| Device A / Device B build timestamps | `20260821T013305Z` / `20260821T014422Z` |
 | APK size | 16,787 bytes |
-| Device A APK SHA-256 | `C8F31F332E044EC910DF41E25A6EF174888B19F4059265EA08911B70FBE3AAA7` |
+| Device A / Device B APK SHA-256 | `C8F31F332E044EC910DF41E25A6EF174888B19F4059265EA08911B70FBE3AAA7` / `5100D51A2FA4B5CDEDE99E767F54A71ED6C5AFBE3D7AEC2E4DC723ADB939EB76` |
 | Package/version | `protocol.ogp.h2probe` / `1` / `0.1.0-h2` |
 | SDK | min 23 / target 36 |
 | Permissions | none; no Internet permission |
@@ -245,25 +245,25 @@ Static and APK verification results:
 
 The Java 8 compilation emits a non-blocking bootstrap-classpath warning under JDK 17 and a deprecation notice because pre-API-31 devices require the legacy `KeyInfo.isInsideSecureHardware()` compatibility path. D8, packaging, alignment and signature verification pass.
 
-The complete host/conformance suite passes after the H2 harness addition: root and both mobile TypeScript checks, 29 test files / 147 tests, six unchanged golden vectors, one Rust cross-language vector test and 16 program host tests. The added regression tests pin the audited SecureStore version/source assumptions, current no-authentication production setting, probe isolation, physical Device A result and pre-install artifact controls.
+The complete host/conformance suite passes after the H2 harness addition: root and both mobile TypeScript checks, 29 test files / 148 tests, six unchanged golden vectors, one Rust cross-language vector test and 16 program host tests. The added regression tests pin the audited SecureStore version/source assumptions, current no-authentication production setting, probe isolation, both normalized physical results and pre-install artifact controls.
 
 ### Physical capability matrix
 
-Device A was measured on 2026-08-21 UTC. Its raw validated JSON evidence has SHA-256 `6F33027D9C204EF117161BD9ABD85BC290395F545EAF99D68126D0CF6CD0B58A`; a normalized, non-identifying semantic copy is committed at `docs/evidence/h2/device-a-keystore-capabilities.json` and guarded by a regression test. Device B is not connected, and no capability is inferred from its model, Android version or earlier Keystore log lines.
+Both devices were measured on 2026-08-21 UTC. Device A raw validated JSON has SHA-256 `6F33027D9C204EF117161BD9ABD85BC290395F545EAF99D68126D0CF6CD0B58A`; Device B raw validated JSON has SHA-256 `5B1A4F6102D6ED9F99745E0697ADACD92D6432823BB5FDEFC033F1A9DB8A46A0`. Normalized, non-identifying semantic copies are committed under `docs/evidence/h2/` and guarded by regression tests.
 
 | Measurement | Device A | Device B |
 |---|---|---|
-| StrongBox feature advertised | PASS — true | PENDING |
-| AES default actual security level and round-trip | PASS — TEE, non-exportable, round-trip true | PENDING |
-| AES requested StrongBox actual result | PASS — StrongBox, non-exportable, round-trip true | PENDING |
-| P-256 default sign/verify and attestation-extension presence | PASS — TEE, non-exportable, sign/verify true, chain 4, extension present | PENDING |
-| P-256 requested StrongBox actual result | PASS — StrongBox, non-exportable, sign/verify true, chain 4, extension present | PENDING |
-| Ed25519 AndroidKeyStore default actual result | UNSUPPORTED — `NoSuchAlgorithmException` | PENDING |
-| Ed25519 requested StrongBox actual result | UNSUPPORTED — `NoSuchAlgorithmException` | PENDING |
+| StrongBox feature advertised | PASS — true | PASS — false; optional capability correctly absent |
+| AES default actual security level and round-trip | PASS — TEE, non-exportable, round-trip true | PASS — TEE, non-exportable, round-trip true |
+| AES requested StrongBox actual result | PASS — StrongBox, non-exportable, round-trip true | UNSUPPORTED — feature absent |
+| P-256 default sign/verify and attestation-extension presence | PASS — TEE, non-exportable, sign/verify true, chain 4, extension present | PASS — TEE, non-exportable, sign/verify true, chain 4, extension present |
+| P-256 requested StrongBox actual result | PASS — StrongBox, non-exportable, sign/verify true, chain 4, extension present | UNSUPPORTED — feature absent |
+| Ed25519 AndroidKeyStore default actual result | UNSUPPORTED — `NoSuchAlgorithmException` | UNSUPPORTED — `NoSuchAlgorithmException` |
+| Ed25519 requested StrongBox actual result | UNSUPPORTED — `NoSuchAlgorithmException` | UNSUPPORTED — feature absent |
 
 The first Device A install attempted ADB incremental delivery, which that Samsung package manager explicitly disallowed; ADB safely retried as a streamed install and succeeded. The harness now passes `--no-incremental` explicitly so subsequent evidence runs avoid this environment-dependent fallback. This was a harness-only finding and did not affect the measurement or OGP state. The probe package was uninstalled after capture.
 
-Device A confirms that hardware-backed P-256/StrongBox is technically feasible on at least one target device and that AndroidKeyStore Ed25519 cannot be assumed. It does not justify a signer migration: the current SecureStore wrapper alias was not directly introspected, attestation was not verified off-device, and a P-256 migration would still change protocol schemas and verification paths.
+Device A confirms that hardware-backed P-256/StrongBox is technically feasible on at least one target device. Device B proves that StrongBox cannot be mandatory for the present device population. Both prove that AndroidKeyStore Ed25519 cannot be assumed. This does not justify a signer migration: current SecureStore wrapper aliases were not directly introspected, attestation was not verified off-device, and a P-256 migration would still change protocol schemas and verification paths.
 
 Attestation-extension presence is only a capability signal. A production trust decision would require off-device validation of the chain, Google root, challenge, security level and revocation state. No such trust system is introduced in H2.
 
@@ -273,11 +273,15 @@ Attestation-extension presence is only a capability signal. A production trust d
 - current SecureStore protection is described accurately as encryption at rest with a Keystore wrapper;
 - `requireAuthentication`, an explicitly measured wrapper and non-exportable P-256/attestation are separate future options, not silent upgrades;
 - any signer algorithm, signed-schema or attestation-protocol change requires a new ADR and explicit approval;
-- H2 cannot pass, and H3 cannot start, until the two-device matrix is captured.
+- H2 passes with the two-device matrix captured; H3 may start after this reviewed branch is integrated.
+
+### H2 decision
+
+**PASS / H3 AUTHORIZED.** Current Ed25519 remains unchanged for MVP. TEE-based wrapping is feasible on both tested devices, StrongBox is optional and fragmented, and non-exportable protocol signing/attestation remain deferred behind a new ADR and explicit approval. Overall device security remains **NO-GO** until H3-H7 complete.
 
 ## H3-H7
 
-Not started. The approved order is preserved at the H2 physical gate.
+H3 is next. H4-H7 have not started. The approved order remains preserved.
 
 ## Protocol preservation audit
 

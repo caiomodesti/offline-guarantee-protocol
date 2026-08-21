@@ -1,6 +1,6 @@
 # ADR-0021 — Device-key feasibility boundary
 
-- Status: Accepted for H2 research; physical capability matrix pending
+- Status: Accepted; H2 physical capability matrix complete
 - Date: 2026-08-18
 - Scope: security-hardening H2 only
 
@@ -26,7 +26,7 @@ The payer and merchant pass `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, but Android's `Sec
 
 Therefore the accurate statement for v0.1 is:
 
-> SecureStore protects the software Ed25519 seed at rest with an Android Keystore AES wrapper. The wrapper's actual security level has not yet been measured on the two target devices, and the Ed25519 seed is exportable to the application process during signing.
+> SecureStore protects the software Ed25519 seed at rest with an Android Keystore AES wrapper. Equivalent AES specifications reached TEE on both target devices, but the already-created SecureStore aliases were not directly introspected. The Ed25519 seed remains exportable to the application process during signing.
 
 It is incorrect to call the current OGP signing identity hardware-backed, StrongBox-backed or non-exportable.
 
@@ -51,9 +51,11 @@ H2 adds a standalone package, `protocol.ogp.h2probe`, which is not linked from e
 
 For generated private/secret keys it records support, actual `KeyInfo` security level, round-trip/signature success and whether `getEncoded()` is null. For P-256 it records only attestation-chain length and presence of the Android attestation extension. It does not emit raw private keys, public keys, certificates, attestation records, device serials or Android IDs. The host collector accepts only one base64-framed JSON result bound to the requested device label, rejects fatal or incomplete output and hashes the stored evidence.
 
-The probe APK is non-debuggable, disables backup and declares no permissions, including no Internet permission. Device A build `20260821T013305Z` is 16,787 bytes with SHA-256 `C8F31F332E044EC910DF41E25A6EF174888B19F4059265EA08911B70FBE3AAA7`; APK Signature Schemes v1, v2 and v3 verify. The signing key is ephemeral and makes this a research artifact, not a distributable application.
+The probe APK is non-debuggable, disables backup and declares no permissions, including no Internet permission. Device A used build `20260821T013305Z`, SHA-256 `C8F31F332E044EC910DF41E25A6EF174888B19F4059265EA08911B70FBE3AAA7`; Device B used build `20260821T014422Z`, SHA-256 `5100D51A2FA4B5CDEDE99E767F54A71ED6C5AFBE3D7AEC2E4DC723ADB939EB76`. Both APKs are 16,787 bytes and APK Signature Schemes v1, v2 and v3 verify. The signing keys are ephemeral and make these research artifacts, not distributable applications.
 
-Physical results are intentionally not inferred from source or H0 logs. Device A (Samsung SM-G781B, Android 13 / API 33) has now produced a complete label-bound result with SHA-256 `6F33027D9C204EF117161BD9ABD85BC290395F545EAF99D68126D0CF6CD0B58A`. Its equivalent default AES-256-GCM key was non-exportable in the trusted environment; a requested StrongBox AES key was non-exportable and reported `STRONGBOX`. Default and StrongBox P-256 both signed and verified, returned four-certificate chains and exposed the Android attestation extension. AndroidKeyStore rejected Ed25519 in both attempts with `NoSuchAlgorithmException`. This measures platform capability, not the private properties of an already-created SecureStore alias. Device B remains pending.
+Physical results are intentionally not inferred from source or H0 logs. Device A (Samsung SM-G781B, Android 13 / API 33) produced a complete label-bound result with SHA-256 `6F33027D9C204EF117161BD9ABD85BC290395F545EAF99D68126D0CF6CD0B58A`. Its equivalent default AES-256-GCM key was non-exportable in the trusted environment; requested StrongBox AES and P-256 keys were also non-exportable and reported `STRONGBOX`. AndroidKeyStore rejected Ed25519 with `NoSuchAlgorithmException`.
+
+Device B (Samsung SM-A236M, Android 14 / API 34) produced a complete label-bound result with SHA-256 `5B1A4F6102D6ED9F99745E0697ADACD92D6432823BB5FDEFC033F1A9DB8A46A0`. Default AES-256-GCM and P-256 were non-exportable in the trusted environment, but the device does not advertise StrongBox. AndroidKeyStore also rejected Ed25519. On both devices, default P-256 signed and verified, returned a four-certificate chain and exposed the Android attestation extension. These results measure platform capability, not the private properties of already-created SecureStore aliases.
 
 ## Attestation boundary
 
@@ -65,7 +67,7 @@ No attestation bytes enter an OGP object in H2. No server trust root, enrollment
 
 1. Keep the v0.1 Ed25519 production signer and all existing canonical/signed objects unchanged.
 2. Describe the present design as a software Ed25519 seed protected at rest by a Keystore AES wrapper, not as a non-exportable signer.
-3. Complete the two-device capability matrix before marking H2 complete or authorizing H3.
+3. The two-device capability matrix is complete. It proves TEE availability on both devices, StrongBox fragmentation and lack of AndroidKeyStore Ed25519 on both tested providers. H2 passes and authorizes H3 without changing production cryptography.
 4. Do not silently fall back from requested StrongBox while claiming StrongBox protection. Any future policy must record the actual security level.
 5. Treat a P-256/non-exportable signer or any protocol attestation as a versioned architectural change requiring a separate ADR, migration/compatibility design and explicit approval.
 6. Hardware backing does not solve full-device state rollback, offline monotonicity or economic double spending. Existing cap, fork detection and deterministic reconciliation remain necessary.
