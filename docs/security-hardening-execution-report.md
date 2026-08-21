@@ -2,8 +2,8 @@
 
 - Started: 2026-08-17
 - Approved order: H0 -> H7
-- Current gate: H4 fuzzing
-- Overall status: **H0 PASS / H1 PASS / H2 PASS / H3 PASS / H4 NEXT**
+- Current gate: H5 QR chaos
+- Overall status: **H0 PASS / H1 PASS / H2 PASS / H3 PASS / H4 PASS / H5 NEXT**
 - Protocol/economic changes: none
 
 ## H0 — physical lifecycle matrix
@@ -320,6 +320,37 @@ The complete repository verification passed with root and both mobile strict typ
 ### H3 decision
 
 **PASS / H4 AUTHORIZED.** No economic defect or specification divergence was found. H4 fuzzing is next; H5-H7 have not started. The approved order remains preserved.
+
+## H4 — reproducible fuzzing
+
+### Gate result
+
+**PASS.** Five fixed-seed campaigns exercise all six approved surfaces: canonical decoders, durable claim material, formal graph construction, reconciliation, allocation arithmetic and the QR frame parser. The campaigns use the existing pinned `fast-check` dependency and make no production or protocol change.
+
+The versioned corpus `fixtures/fuzz-regressions-v1.json` freezes campaign seeds/run counts and replays minimized malformed inputs. Future minimized counterexamples must be appended to this corpus before a fix is accepted; changing a seed is not a substitute for preserving a regression.
+
+| Surface | Seed | Generated cases | Safety oracle | Result |
+|---|---:|---:|---|---|
+| Canonical decoders | `0x0a6f3401` | 2,000 | Accept only exact canonical round trips; malformed input may fail only with controlled `OgpValidationError` | PASS |
+| Stored claim material | `0x0a6f3402` | 512 | Amount, credential hash, session, QR frame, merchant, merchant device, program or issuer mutation must add no submit material | PASS |
+| Graph construction / formal fork detector | `0x0a6f3403` | 1,024 | Fork groups equal the reference predicate: same parent and sequence, more than one distinct child | PASS |
+| Reconciliation mutations | `0x0a6f3403` | 512 | Amount, merchant, signature, parent, child or sequence mutation cannot increase eligible edges or exposure | PASS |
+| Allocation arithmetic | `0x0a6f3404` | 4,096 | Every valid u64 input must allocate exactly within cap; every invalid/overflow input must fail | PASS |
+| QR frame parser | `0x0a6f3405` | 4,096 | Arbitrary strings either decode to an exact 32+32-byte receipt or fail with controlled `OgpValidationError` | PASS |
+
+Total generated cases: **12,240**, plus the minimized regression corpus. The complete repository verification passed with root and both mobile strict typechecks, 31 TypeScript test files / 157 tests, six unchanged golden vectors, one Rust cross-language conformance test, Rust formatting and 17 program host tests.
+
+### Findings and hostile review
+
+1. **Harness mutation collision — TEST DEFECT, CLOSED.** The initial merchant mutation generator could reproduce the legitimate `0x71` merchant and incorrectly demand rejection. Mutations now XOR a non-zero byte, guaranteeing a changed trust input. No product defect was involved.
+2. **Default test timeout — TEST DEFECT, CLOSED.** The graph/reconciliation campaign correctly exceeded Vitest's 5-second default. A bounded 30-second timeout is explicit; seeds and run counts were not reduced to hide the cost.
+3. Canonical and QR campaigns reject generic JavaScript crashes as successful outcomes; expected malformed input must surface as `OgpValidationError`.
+4. Arithmetic fuzzing distinguishes valid from invalid input before execution, so an unexpected exception on a valid allocation cannot be counted as a pass.
+5. H4 does not claim exhaustive input-space proof or native coverage-guided fuzzing. The deterministic campaigns are a reproducible MVP hardening baseline; sustained native fuzzing remains a future production-security option.
+
+### H4 decision
+
+**PASS / H5 AUTHORIZED.** No protocol, economic or cryptographic defect was found. H5 QR chaos is next; H6-H7 have not started. The approved order remains preserved.
 
 ## Protocol preservation audit
 

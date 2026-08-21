@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "campaigns": {
+    "canonicalDecoders": { "seed": 175059969, "numRuns": 2000 },
+    "claimMaterial": { "seed": 175059970, "numRuns": 512 },
+    "graphAndReconciliation": { "seed": 175059971, "numRuns": 1024 },
+    "arithmetic": { "seed": 175059972, "numRuns": 4096 },
+    "qrFrameParser": { "seed": 175059973, "numRuns": 4096 }
+  },
+  "minimizedRegressions": [
+    { "target": "session-certificate-decoder", "input": "empty", "expected": "INVALID_LENGTH" },
+    { "target": "session-certificate-decoder", "input": "553-zero-bytes", "expected": "INVALID_LENGTH" },
+    { "target": "session-certificate-decoder", "input": "555-zero-bytes", "expected": "INVALID_LENGTH" },
+    { "target": "qr-frame-parser", "input": "empty", "expected": "INVALID_QR_FRAME" },
+    { "target": "qr-frame-parser", "input": "OGPQR.2..0.1.", "expected": "INVALID_LENGTH" }
+  ]
+}
